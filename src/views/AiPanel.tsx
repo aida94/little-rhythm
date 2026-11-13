@@ -40,9 +40,9 @@ export function AiPanel({ kid, kids, mine, now, onOpenSettings }: Props) {
     return (
       <div className="coming">
         <b>AI assistant</b>
-        Get a weekly summary and ask questions about {kid.name}'s sleep and eating. Add your AI API key in Settings to turn it on.
+        Get a weekly summary and ask questions about {kid.name}'s sleep and eating. Connect your AI service in Settings to turn it on.
         <button className="btn2 ai-connect" onClick={onOpenSettings}>
-          Add API key
+          Connect AI
         </button>
       </div>
     )

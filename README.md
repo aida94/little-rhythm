@@ -30,12 +30,14 @@ Charts are plain SVG drawn by React. No chart library is used.
 
 The Insights tab can ask an AI for a weekly summary and answer questions about a child.
 
-- It uses your own **DeepSeek** API key. Add it in **Settings → AI assistant**. The app checks the key before saving it.
-- The key is saved only in this browser (IndexedDB). It is not in the code and not in backups, so add it again on each device.
-- When you use AI, the app sends a summary of the last 14 days of that child's logs to DeepSeek: times, foods, amounts, notes, age in months and gender. **Names are removed** first and replaced with "the child" or "a sibling".
+- It works with any **OpenAI-compatible** AI service. In **Settings → AI assistant**, add the service's **base URL**, your **API key** and the **model name**. The app checks the connection before saving.
+  - Example: DeepSeek uses base URL `https://api.deepseek.com` and model `deepseek-flash`.
+  - Example: OpenAI uses base URL `https://api.openai.com/v1`.
+  - The service must allow calls straight from a browser (CORS). Some services do not.
+- The settings are saved only in this browser (IndexedDB). They are not in the code and not in backups, so add them again on each device.
+- When you use AI, the app sends a summary of the last 14 days of that child's logs to the AI service: times, foods, amounts, notes, age in months and gender. **Names are removed** first and replaced with "the child" or "a sibling".
 - Nothing is sent until you tap **Create insights** or **Ask**.
-- The default model is `deepseek-flash`. You can change it in Settings.
-- All AI calls are in `src/lib/ai.ts`. To switch provider, or to move the key to a small server later, change that file.
+- All AI calls are in `src/lib/ai.ts`. To move the key to a small server later, change that file.
 
 ## Run it on your computer
 

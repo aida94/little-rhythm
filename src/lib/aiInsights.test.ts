@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { baseUrlProblem, normalizeBaseUrl } from './ai'
 import { childSummary, parseInsights, scrubNames } from './aiInsights'
 import { withAge } from './kids'
 import { at, monthsAgoIso } from './time'
@@ -53,5 +54,18 @@ describe('parseInsights', () => {
 
   it('rejects text that is not JSON', () => {
     expect(() => parseInsights('Here are some tips')).toThrow()
+  })
+})
+
+describe('base URL', () => {
+  it('cleans pasted addresses', () => {
+    expect(normalizeBaseUrl(' https://api.example.com/v1/ ')).toBe('https://api.example.com/v1')
+    expect(normalizeBaseUrl('https://api.example.com/v1/chat/completions')).toBe('https://api.example.com/v1')
+  })
+  it('rejects bad addresses', () => {
+    expect(baseUrlProblem('')).not.toBe('')
+    expect(baseUrlProblem('api.example.com')).not.toBe('')
+    expect(baseUrlProblem('http://api.example.com')).not.toBe('')
+    expect(baseUrlProblem('https://api.example.com/v1')).toBe('')
   })
 })
