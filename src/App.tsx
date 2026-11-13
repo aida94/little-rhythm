@@ -128,8 +128,8 @@ export default function App() {
         </button>
       )}
 
-      {sheet?.type === 'sleep' && <SleepSheet {...sheetProps} />}
-      {sheet?.type === 'wake' && running && <WakeSheet {...sheetProps} running={running} />}
+      {sheet?.type === 'sleep' && <SleepSheet {...sheetProps} mine={mine} running={running} />}
+      {sheet?.type === 'wake' && running && <WakeSheet {...sheetProps} running={running} onAddEarlier={() => setSheet({ type: 'sleep' })} />}
       {sheet?.type === 'feed' && <FeedSheet {...sheetProps} initial={sheet} />}
       {sheet?.type === 'diaper' && <DiaperSheet {...sheetProps} />}
       {sheet?.type === 'note' && <NoteSheet {...sheetProps} />}

@@ -1,4 +1,4 @@
-import { D, H, dayStart, dur, hm } from './time'
+import { D, H, dayStart, dur, hm, tsFromTime } from './time'
 import type { Details, Entry, EntryType } from './types'
 
 export const isPoop = (d?: Details) => ['Dirty', 'Poop', 'Both'].includes(d?.kind ?? '')
@@ -122,3 +122,31 @@ export function weekSummary(mine: Entry[], weekOff: number, now = Date.now()): s
   return `Avg sleep ${dur(days.reduce((t, v) => t + v, 0) / days.length)} / day`
 }
 
+
+/** Turn the sleep sheet's times into timestamps and check them against the child's other sleeps.
+ *  endHm null means the child is still asleep. Returns an error message instead when something is off. */
+export function planSleep(
+  startHm: string,
+  endHm: string | null,
+  others: Entry[],
+  now = Date.now(),
+): { start: number; end: number | null } | { error: string } {
+  let start = tsFromTime(startHm, now)
+  let end: number | null = null
+  if (endHm !== null) {
+    if (!endHm) return { error: 'Add the time the child woke up.' }
+    if (endHm === startHm) return { error: 'Fell asleep and woke up are the same time. Change one of them.' }
+    end = tsFromTime(endHm, now)
+    if (end <= start) start -= D
+    if (end - start > 16 * H) return { error: 'That sleep is longer than 16 hours. Check the times.' }
+  }
+  const sleeps = others.filter((e) => e.type === 'sleep')
+  if (end === null) {
+    const run = sleeps.find((e) => !e.end)
+    if (run) return { error: `A sleep is already running since ${hm(run.start)}. Use Wake up first.` }
+  }
+  const myEnd = end ?? now
+  const clash = sleeps.find((e) => start < (e.end ?? now) && e.start < myEnd)
+  if (clash) return { error: `This overlaps the sleep ${hm(clash.start)}–${clash.end ? hm(clash.end) : 'now'}. Check the times.` }
+  return { start, end }
+}

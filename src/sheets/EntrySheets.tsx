@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { ChipRow, Field, Sheet } from '../components/ui'
 import { db } from '../lib/db'
-import { isPoop } from '../lib/entries'
+import { isPoop, planSleep } from '../lib/entries'
 import { isPotty } from '../lib/kids'
-import { D, MIN, dur, hm, tsFromTime, uid } from '../lib/time'
+import { H, MIN, dur, hm, tsFromTime, uid } from '../lib/time'
 import type { Details, Entry, KidInfo, Stage } from '../lib/types'
 
 export interface SheetProps {
@@ -38,44 +38,75 @@ function NoteField({ value, onChange, required }: { value: string; onChange: (v:
   )
 }
 
-export function SleepSheet({ kid, onClose, onDone }: SheetProps) {
-  const [kind, setKind] = useState(() => {
-    const hr = new Date().getHours()
-    return hr >= 18 || hr < 5 ? 'Night' : 'Nap'
-  })
-  const [time, setTime] = useState(nowHm)
-  const [end, setEnd] = useState('')
+/** Night if the child fell asleep between 18:00 and 05:00. */
+const kindAt = (hhmm: string) => {
+  const hr = +hhmm.split(':')[0]
+  return hr >= 18 || hr < 5 ? 'Night' : 'Nap'
+}
+
+const ASLEEP = 'Still asleep'
+const WOKE = 'Woke up'
+
+/** Start a sleep, or log a sleep that already ended. While a sleep is running (`running`),
+ *  only past sleeps can be added, and they must end before the running one started. */
+export function SleepSheet({ kid, mine, running, onClose, onDone }: SheetProps & { mine: Entry[]; running?: Entry }) {
+  const [time, setTime] = useState(() => (running ? hm(running.start - 2 * H) : nowHm()))
+  const [kind, setKind] = useState(() => kindAt(time))
+  const [status, setStatus] = useState(running ? WOKE : ASLEEP)
+  const [end, setEnd] = useState(() => (running ? hm(running.start - H) : ''))
   const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+  const pickStatus = (s: string) => {
+    setStatus(s)
+    setError('')
+    if (s === WOKE && !end) {
+      setEnd(nowHm())
+      if (time === nowHm()) setTime(hm(Date.now() - H))
+    }
+  }
   const save = async () => {
-    const start = tsFromTime(time)
-    let e: number | null = end ? tsFromTime(end) : null
-    if (e && e <= start) e += D
-    if (e && e > Date.now()) e = null
-    await add({ kid: kid.id, type: 'sleep', start, end: e, details: { kind }, note: note.trim() || undefined })
-    onDone(e ? 'Sleep saved' : 'Sleep timer started')
+    const plan = planSleep(time, status === WOKE ? end : null, mine)
+    if ('error' in plan) return setError(plan.error.replace('the child', kid.name))
+    await add({ kid: kid.id, type: 'sleep', start: plan.start, end: plan.end, details: { kind }, note: note.trim() || undefined })
+    onDone(plan.end ? 'Sleep saved' : 'Sleep timer started')
   }
   return (
     <Sheet onClose={onClose}>
-      <h2>{kid.name} is going to sleep</h2>
+      <h2>{running ? 'Add an earlier sleep' : `${kid.name} is going to sleep`}</h2>
+      {running && <div className="disclaim">{kid.name} is asleep now (since {hm(running.start)}). Add a sleep that ended before that.</div>}
       <Field label="Kind">
         <ChipRow options={['Nap', 'Night']} value={kind} onChange={setKind} />
       </Field>
-      <div className="row2">
-        <TimeField value={time} onChange={setTime} />
-        <Field label="Woke at (optional)" htmlFor="f-end">
-          <input type="time" id="f-end" value={end} onChange={(e) => setEnd(e.target.value)} />
+      {!running && (
+        <Field label="Now">
+          <ChipRow options={[ASLEEP, WOKE]} value={status} onChange={pickStatus} />
         </Field>
-      </div>
-      <div className="disclaim">Leave "woke at" empty to start a live timer.</div>
+      )}
+      {status === WOKE ? (
+        <div className="row2">
+          <TimeField label="Fell asleep" value={time} onChange={(v) => (setTime(v), setError(''))} />
+          <Field label="Woke up" htmlFor="f-end">
+            <input type="time" id="f-end" value={end} onChange={(e) => (setEnd(e.target.value), setError(''))} />
+          </Field>
+        </div>
+      ) : (
+        <TimeField label="Fell asleep" value={time} onChange={(v) => (setTime(v), setError(''))} />
+      )}
+      {status === ASLEEP && <div className="disclaim">A live timer starts. Tap Wake up when {kid.name} wakes.</div>}
       <NoteField value={note} onChange={setNote} />
+      {error && (
+        <div className="hint" role="alert">
+          {error}
+        </div>
+      )}
       <button className="save" onClick={save}>
-        {end ? 'Save' : 'Start sleep'}
+        {status === WOKE ? 'Save sleep' : 'Start sleep'}
       </button>
     </Sheet>
   )
 }
 
-export function WakeSheet({ kid, running, onClose, onDone }: SheetProps & { running: Entry }) {
+export function WakeSheet({ kid, running, onClose, onDone, onAddEarlier }: SheetProps & { running: Entry; onAddEarlier: () => void }) {
   const [time, setTime] = useState(nowHm)
   const [openedAt] = useState(Date.now)
   const [note, setNote] = useState(running.note ?? '')
@@ -94,6 +125,9 @@ export function WakeSheet({ kid, running, onClose, onDone }: SheetProps & { runn
       <NoteField value={note} onChange={setNote} />
       <button className="save" onClick={save}>
         Save
+      </button>
+      <button className="btn2" onClick={onAddEarlier}>
+        Add an earlier sleep instead
       </button>
     </Sheet>
   )
