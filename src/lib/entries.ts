@@ -1,4 +1,4 @@
-import { D, H, dayStart, dur, hm, tsFromTime } from './time'
+import { D, H, MIN, dayStart, dur, hm, tsFromTime, tsOnDay } from './time'
 import type { Details, Entry, EntryType } from './types'
 
 export const isPoop = (d?: Details) => ['Dirty', 'Poop', 'Both'].includes(d?.kind ?? '')
@@ -130,14 +130,23 @@ export function planSleep(
   endHm: string | null,
   others: Entry[],
   now = Date.now(),
+  /** When editing: the entry's original start, so the sleep stays on its own day. */
+  ref?: number,
 ): { start: number; end: number | null } | { error: string } {
-  let start = tsFromTime(startHm, now)
+  if (!startHm) return { error: 'Add the time the child fell asleep.' }
+  let start = ref === undefined ? tsFromTime(startHm, now) : tsOnDay(startHm, ref, now)
   let end: number | null = null
   if (endHm !== null) {
     if (!endHm) return { error: 'Add the time the child woke up.' }
     if (endHm === startHm) return { error: 'Fell asleep and woke up are the same time. Change one of them.' }
-    end = tsFromTime(endHm, now)
-    if (end <= start) start -= D
+    if (ref === undefined) {
+      end = tsFromTime(endHm, now)
+      if (end <= start) start -= D
+    } else {
+      end = tsOnDay(endHm, start, Infinity)
+      if (end <= start) end += D
+      if (end > now + 5 * MIN) return { error: 'The woke up time is in the future. Check the times.' }
+    }
     if (end - start > 16 * H) return { error: 'That sleep is longer than 16 hours. Check the times.' }
   }
   const sleeps = others.filter((e) => e.type === 'sleep')

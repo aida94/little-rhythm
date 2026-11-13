@@ -15,9 +15,10 @@ interface Props {
   onAction: (a: QuickAction) => void
   onWeek: () => void
   onDelete: (id: string) => void
+  onEdit: (id: string) => void
 }
 
-export function TodayView({ kid, mine, now, onAction, onWeek, onDelete }: Props) {
+export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit }: Props) {
   const [armed, setArmed] = useState<string | null>(null)
   const running = runningSleep(mine)
   const lastSleep = lastFinishedSleep(mine)
@@ -92,11 +93,13 @@ export function TodayView({ kid, mine, now, onAction, onWeek, onDelete }: Props)
               e={e}
               now={now}
               time={hm(e.start)}
+              onOpen={() => onEdit(e.id)}
               action={
                 <button
                   className={`del ${armed === e.id ? 'arm' : ''}`}
                   aria-label="Delete entry"
-                  onClick={() => {
+                  onClick={(ev) => {
+                    ev.stopPropagation()
                     if (armed === e.id) {
                       onDelete(e.id)
                       setArmed(null)
@@ -112,15 +115,45 @@ export function TodayView({ kid, mine, now, onAction, onWeek, onDelete }: Props)
           <div className="empty">Nothing logged yet today. Tap a button above.</div>
         )}
       </div>
+      {items.length > 0 && <div className="disclaim">Tap an entry to change its time or details.</div>}
     </>
   )
 }
 
-export function EntryRow({ e, now, time, det, action }: { e: Entry; now: number; time: string; det?: string; action?: React.ReactNode }) {
+export function EntryRow({
+  e,
+  now,
+  time,
+  det,
+  action,
+  onOpen,
+}: {
+  e: Entry
+  now: number
+  time: string
+  det?: string
+  action?: React.ReactNode
+  /** Makes the row tappable, e.g. to edit the entry. */
+  onOpen?: () => void
+}) {
   const d = describeEntry(e, now)
   const detail = det ?? d.det
+  const open = onOpen
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': `Edit ${d.what} at ${time}`,
+        onClick: onOpen,
+        onKeyDown: (ev: React.KeyboardEvent) => {
+          if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) {
+            ev.preventDefault()
+            onOpen()
+          }
+        },
+      }
+    : {}
   return (
-    <div className="item">
+    <div className={`item${onOpen ? ' tap' : ''}`} {...open}>
       <time>{time}</time>
       <span className={`ic ${e.type}`}>
         <Icon name={e.type} />

@@ -51,3 +51,14 @@ export const uid = () => crypto.randomUUID()
 
 /** Monday = 0 */
 export const todayIdx = () => (new Date().getDay() + 6) % 7
+
+/** "HH:MM" on the same calendar day as `ref`. Used when editing, so an entry keeps its day.
+ *  Moved a day back if that would land in the future. */
+export function tsOnDay(hhmm: string, ref: number, now = Date.now()): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  const d = new Date(ref)
+  d.setHours(h, m, 0, 0)
+  let t = d.getTime()
+  if (t > now + 5 * MIN) t -= D
+  return t
+}

@@ -22,6 +22,7 @@ type SheetState =
   | { type: 'sleep' | 'wake' | 'diaper' | 'note' | 'say' | 'settings' }
   | { type: 'feed'; method?: string; food?: string }
   | { type: 'menu'; slot: string }
+  | { type: 'edit'; id: string }
 
 const KID_KEY = 'littlerhythm-kid'
 const readKid = () => {
@@ -93,13 +94,15 @@ export default function App() {
   const quick = (a: QuickAction) => setSheet({ type: a === 'sleep' && runningSleep(mine) ? 'wake' : a })
   const running = runningSleep(mine)
   const sheetProps = { kid, onClose: close, onDone: doneToToday }
+  const editing = sheet?.type === 'edit' ? mine.find((e) => e.id === sheet.id) : undefined
+  const otherRunning = editing ? runningSleep(mine.filter((e) => e.id !== editing.id)) : undefined
 
   return (
     <div className="phone">
       <div className="app" ref={scroller}>
         <Header tab={tab} now={now} onSettings={() => setSheet({ type: 'settings' })} />
         <KidPicker kids={kids} current={kid.id} onPick={pickKid} />
-        {tab === 'today' && <TodayView kid={kid} mine={mine} now={now} onAction={quick} onWeek={() => setTab('trends')} onDelete={(id) => db.entries.delete(id).then(() => flash('Entry deleted'))} />}
+        {tab === 'today' && <TodayView kid={kid} mine={mine} now={now} onAction={quick} onWeek={() => setTab('trends')} onDelete={(id) => db.entries.delete(id).then(() => flash('Entry deleted'))} onEdit={(id) => setSheet({ type: 'edit', id })} />}
         {tab === 'food' && (
           <FoodView
             kid={kid}
@@ -135,6 +138,10 @@ export default function App() {
       {sheet?.type === 'note' && <NoteSheet {...sheetProps} />}
       {sheet?.type === 'say' && <SaySheet {...sheetProps} kids={kids} />}
       {sheet?.type === 'menu' && <MenuSheet kid={kid} onClose={close} onDone={done} menu={menu} day={foodDay} slot={sheet.slot} />}
+      {editing?.type === 'sleep' && <SleepSheet key={editing.id} {...sheetProps} mine={mine} running={otherRunning} entry={editing} />}
+      {editing?.type === 'feed' && <FeedSheet key={editing.id} {...sheetProps} entry={editing} />}
+      {editing?.type === 'diaper' && <DiaperSheet key={editing.id} {...sheetProps} entry={editing} />}
+      {editing?.type === 'note' && <NoteSheet key={editing.id} {...sheetProps} entry={editing} />}
       {sheet?.type === 'settings' && <SettingsSheet kids={kids} entries={entries} onClose={close} onDone={done} />}
 
       {toast && !sheet && <div className="toast">{toast}</div>}

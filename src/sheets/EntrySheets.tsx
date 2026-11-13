@@ -3,7 +3,7 @@ import { ChipRow, Field, Sheet } from '../components/ui'
 import { db } from '../lib/db'
 import { isPoop, planSleep } from '../lib/entries'
 import { isPotty } from '../lib/kids'
-import { H, MIN, dur, hm, tsFromTime, uid } from '../lib/time'
+import { H, MIN, dur, hm, tsFromTime, tsOnDay, uid } from '../lib/time'
 import type { Details, Entry, KidInfo, Stage } from '../lib/types'
 
 export interface SheetProps {
@@ -15,6 +15,30 @@ export interface SheetProps {
 
 const nowHm = () => hm(Date.now())
 const add = (e: Omit<Entry, 'id'>) => db.entries.add({ id: uid(), ...e })
+
+/** Add a new entry, or replace the one being edited (keeping its id). */
+const store = (entry: Entry | undefined, e: Omit<Entry, 'id'>) =>
+  entry ? db.entries.put({ ...e, id: entry.id, ...(entry.sample ? { sample: true } : {}) }) : add(e)
+
+/** The time field's value as a timestamp. When editing, the entry stays on its own day. */
+const when = (hhmm: string, entry?: Entry) => (entry ? tsOnDay(hhmm, entry.start) : tsFromTime(hhmm))
+
+/** Delete button for the edit sheets. First tap asks, second tap deletes. */
+function DeleteEntry({ entry, onDone }: { entry: Entry; onDone: (msg: string) => void }) {
+  const [armed, setArmed] = useState(false)
+  return (
+    <button
+      className="btn2 danger"
+      onClick={async () => {
+        if (!armed) return setArmed(true)
+        await db.entries.delete(entry.id)
+        onDone('Entry deleted')
+      }}
+    >
+      {armed ? 'Tap again to delete' : 'Delete entry'}
+    </button>
+  )
+}
 
 function TimeField({ value, onChange, label = 'Time' }: { value: string; onChange: (v: string) => void; label?: string }) {
   return (
@@ -49,12 +73,12 @@ const WOKE = 'Woke up'
 
 /** Start a sleep, or log a sleep that already ended. While a sleep is running (`running`),
  *  only past sleeps can be added, and they must end before the running one started. */
-export function SleepSheet({ kid, mine, running, onClose, onDone }: SheetProps & { mine: Entry[]; running?: Entry }) {
-  const [time, setTime] = useState(() => (running ? hm(running.start - 2 * H) : nowHm()))
-  const [kind, setKind] = useState(() => kindAt(time))
-  const [status, setStatus] = useState(running ? WOKE : ASLEEP)
-  const [end, setEnd] = useState(() => (running ? hm(running.start - H) : ''))
-  const [note, setNote] = useState('')
+export function SleepSheet({ kid, mine, running, entry, onClose, onDone }: SheetProps & { mine: Entry[]; running?: Entry; entry?: Entry }) {
+  const [time, setTime] = useState(() => (entry ? hm(entry.start) : running ? hm(running.start - 2 * H) : nowHm()))
+  const [kind, setKind] = useState(() => entry?.details.kind ?? kindAt(time))
+  const [status, setStatus] = useState(entry ? (entry.end ? WOKE : ASLEEP) : running ? WOKE : ASLEEP)
+  const [end, setEnd] = useState(() => (entry?.end ? hm(entry.end) : running && !entry ? hm(running.start - H) : ''))
+  const [note, setNote] = useState(entry?.note ?? '')
   const [error, setError] = useState('')
   const pickStatus = (s: string) => {
     setStatus(s)
@@ -65,15 +89,16 @@ export function SleepSheet({ kid, mine, running, onClose, onDone }: SheetProps &
     }
   }
   const save = async () => {
-    const plan = planSleep(time, status === WOKE ? end : null, mine)
+    const others = entry ? mine.filter((e) => e.id !== entry.id) : mine
+    const plan = planSleep(time, status === WOKE ? end : null, others, Date.now(), entry?.start)
     if ('error' in plan) return setError(plan.error.replace('the child', kid.name))
-    await add({ kid: kid.id, type: 'sleep', start: plan.start, end: plan.end, details: { kind }, note: note.trim() || undefined })
-    onDone(plan.end ? 'Sleep saved' : 'Sleep timer started')
+    await store(entry, { kid: kid.id, type: 'sleep', start: plan.start, end: plan.end, details: { kind }, note: note.trim() || undefined })
+    onDone(entry ? 'Sleep updated' : plan.end ? 'Sleep saved' : 'Sleep timer started')
   }
   return (
     <Sheet onClose={onClose}>
-      <h2>{running ? 'Add an earlier sleep' : `${kid.name} is going to sleep`}</h2>
-      {running && <div className="disclaim">{kid.name} is asleep now (since {hm(running.start)}). Add a sleep that ended before that.</div>}
+      <h2>{entry ? 'Edit sleep' : running ? 'Add an earlier sleep' : `${kid.name} is going to sleep`}</h2>
+      {running && !entry && <div className="disclaim">{kid.name} is asleep now (since {hm(running.start)}). Add a sleep that ended before that.</div>}
       <Field label="Kind">
         <ChipRow options={['Nap', 'Night']} value={kind} onChange={setKind} />
       </Field>
@@ -92,7 +117,10 @@ export function SleepSheet({ kid, mine, running, onClose, onDone }: SheetProps &
       ) : (
         <TimeField label="Fell asleep" value={time} onChange={(v) => (setTime(v), setError(''))} />
       )}
-      {status === ASLEEP && <div className="disclaim">A live timer starts. Tap Wake up when {kid.name} wakes.</div>}
+      {status === ASLEEP && !entry && (
+        <div className="disclaim">A live timer starts. Tap Wake up when {kid.name} wakes.</div>
+      )}
+      {status === ASLEEP && entry && <div className="disclaim">The sleep stays running until you tap Wake up.</div>}
       <NoteField value={note} onChange={setNote} />
       {error && (
         <div className="hint" role="alert">
@@ -100,8 +128,9 @@ export function SleepSheet({ kid, mine, running, onClose, onDone }: SheetProps &
         </div>
       )}
       <button className="save" onClick={save}>
-        {status === WOKE ? 'Save sleep' : 'Start sleep'}
+        {entry ? 'Save changes' : status === WOKE ? 'Save sleep' : 'Start sleep'}
       </button>
+      {entry && <DeleteEntry entry={entry} onDone={onDone} />}
     </Sheet>
   )
 }
@@ -133,23 +162,30 @@ export function WakeSheet({ kid, running, onClose, onDone, onAddEarlier }: Sheet
   )
 }
 
-export function FeedSheet({ kid, onClose, onDone, initial }: SheetProps & { initial?: { method?: string; food?: string } }) {
+/** Feed types for the age. An edited entry keeps its own type even if the child has grown. */
+const feedOptions = (baby: boolean, current: string) => {
+  const opts = baby ? ['Breast', 'Bottle', 'Solids'] : ['Meal', 'Bottle']
+  return opts.includes(current) ? opts : [...opts, current]
+}
+
+export function FeedSheet({ kid, onClose, onDone, initial, entry }: SheetProps & { initial?: { method?: string; food?: string }; entry?: Entry }) {
   const baby = kid.ageM < 12
-  const [method, setMethod] = useState(initial?.method ?? (baby ? 'Bottle' : 'Meal'))
-  const [ml, setMl] = useState('')
-  const [minutes, setMinutes] = useState('')
-  const [side, setSide] = useState('Left')
-  const [food, setFood] = useState(initial?.food ?? '')
-  const [amount, setAmount] = useState('Most')
-  const [time, setTime] = useState(nowHm)
-  const [note, setNote] = useState('')
+  const d = entry?.details
+  const [method, setMethod] = useState(d?.method ?? initial?.method ?? (baby ? 'Bottle' : 'Meal'))
+  const [ml, setMl] = useState(d?.ml ? String(d.ml) : '')
+  const [minutes, setMinutes] = useState(d?.minutes ? String(d.minutes) : '')
+  const [side, setSide] = useState(d?.side ?? 'Left')
+  const [food, setFood] = useState(d?.food ?? initial?.food ?? '')
+  const [amount, setAmount] = useState(d?.amount ?? 'Most')
+  const [time, setTime] = useState(() => (entry ? hm(entry.start) : nowHm()))
+  const [note, setNote] = useState(entry?.note ?? '')
   const save = async () => {
     const details: Details = { method }
     if (method === 'Bottle') Object.assign(details, { ml: +ml || null, minutes: +minutes || null })
     else if (method === 'Breast') Object.assign(details, { side, minutes: +minutes || null })
     else Object.assign(details, { food: food.trim(), amount })
-    await add({ kid: kid.id, type: 'feed', start: tsFromTime(time), details, note: note.trim() || undefined })
-    onDone('Feed saved')
+    await store(entry, { kid: kid.id, type: 'feed', start: when(time, entry), details, note: note.trim() || undefined })
+    onDone(entry ? 'Feed updated' : 'Feed saved')
   }
   const minutesField = (ph: string) => (
     <Field label="Minutes" htmlFor="f-min">
@@ -158,9 +194,9 @@ export function FeedSheet({ kid, onClose, onDone, initial }: SheetProps & { init
   )
   return (
     <Sheet onClose={onClose}>
-      <h2>Log a feed</h2>
+      <h2>{entry ? 'Edit feed' : 'Log a feed'}</h2>
       <Field label="Type">
-        <ChipRow options={baby ? ['Breast', 'Bottle', 'Solids'] : ['Meal', 'Bottle']} value={method} onChange={setMethod} />
+        <ChipRow options={feedOptions(baby, method)} value={method} onChange={setMethod} />
       </Field>
       {method === 'Bottle' ? (
         <>
@@ -196,8 +232,9 @@ export function FeedSheet({ kid, onClose, onDone, initial }: SheetProps & { init
       )}
       <NoteField value={note} onChange={setNote} />
       <button className="save" onClick={save}>
-        Save
+        {entry ? 'Save changes' : 'Save'}
       </button>
+      {entry && <DeleteEntry entry={entry} onDone={onDone} />}
     </Sheet>
   )
 }
@@ -211,14 +248,16 @@ const COLORS: [string, string][] = [
   ['White', '#EEE'],
 ]
 
-export function DiaperSheet({ kid, onClose, onDone }: SheetProps) {
-  const potty = isPotty(kid)
-  const [kind, setKind] = useState(potty ? 'Pee' : 'Wet')
-  const [where, setWhere] = useState('In potty')
-  const [color, setColor] = useState(potty ? 'Brown' : 'Yellow')
-  const [texture, setTexture] = useState('Soft')
-  const [time, setTime] = useState(nowHm)
-  const [note, setNote] = useState('')
+export function DiaperSheet({ kid, onClose, onDone, entry }: SheetProps & { entry?: Entry }) {
+  const d = entry?.details
+  // An entry keeps the words it was saved with (Wet/Dirty for diapers, Pee/Poop for potty).
+  const potty = entry ? ['Pee', 'Poop'].includes(d?.kind ?? '') || !!d?.where : isPotty(kid)
+  const [kind, setKind] = useState(d?.kind ?? (potty ? 'Pee' : 'Wet'))
+  const [where, setWhere] = useState(d?.where ?? 'In potty')
+  const [color, setColor] = useState(d?.color ?? (potty ? 'Brown' : 'Yellow'))
+  const [texture, setTexture] = useState(d?.texture ?? 'Soft')
+  const [time, setTime] = useState(() => (entry ? hm(entry.start) : nowHm()))
+  const [note, setNote] = useState(entry?.note ?? '')
   const poop = isPoop({ kind })
 
   const changeStage = async (stage: string) => {
@@ -233,18 +272,22 @@ export function DiaperSheet({ kid, onClose, onDone }: SheetProps) {
       details.where = where
       if (where === 'Accident') details.accident = true
     }
-    await add({ kid: kid.id, type: 'diaper', start: tsFromTime(time), details, note: note.trim() || undefined })
-    onDone(potty ? 'Potty saved' : 'Diaper saved')
+    await store(entry, { kid: kid.id, type: 'diaper', start: when(time, entry), details, note: note.trim() || undefined })
+    onDone(entry ? 'Entry updated' : potty ? 'Potty saved' : 'Diaper saved')
   }
   return (
     <Sheet onClose={onClose}>
-      <h2>{potty ? 'Log potty' : 'Log a diaper'}</h2>
+      <h2>{entry ? (potty ? 'Edit potty' : 'Edit diaper') : potty ? 'Log potty' : 'Log a diaper'}</h2>
       <Field label="Kind">
         <ChipRow options={potty ? ['Pee', 'Poop', 'Both'] : ['Wet', 'Dirty', 'Both']} value={kind} onChange={setKind} />
       </Field>
       {potty && (
         <Field label="Where">
-          <ChipRow options={kid.stage === 'Training' ? ['In potty', 'Accident', 'In diaper'] : ['In potty', 'Accident']} value={where} onChange={setWhere} />
+          <ChipRow
+            options={kid.stage === 'Training' || where === 'In diaper' ? ['In potty', 'Accident', 'In diaper'] : ['In potty', 'Accident']}
+            value={where}
+            onChange={setWhere}
+          />
         </Field>
       )}
       {poop && (
@@ -259,33 +302,37 @@ export function DiaperSheet({ kid, onClose, onDone }: SheetProps) {
         </>
       )}
       <TimeField value={time} onChange={setTime} />
-      <Field label={`${kid.name} uses`}>
-        <ChipRow options={['Diaper', 'Training', 'Potty']} value={kid.stage} onChange={changeStage} />
-      </Field>
+      {!entry && (
+        <Field label={`${kid.name} uses`}>
+          <ChipRow options={['Diaper', 'Training', 'Potty']} value={kid.stage} onChange={changeStage} />
+        </Field>
+      )}
       <NoteField value={note} onChange={setNote} />
       <button className="save" onClick={save}>
-        Save
+        {entry ? 'Save changes' : 'Save'}
       </button>
+      {entry && <DeleteEntry entry={entry} onDone={onDone} />}
     </Sheet>
   )
 }
 
-export function NoteSheet({ kid, onClose, onDone }: SheetProps) {
-  const [time, setTime] = useState(nowHm)
-  const [note, setNote] = useState('')
+export function NoteSheet({ kid, onClose, onDone, entry }: SheetProps & { entry?: Entry }) {
+  const [time, setTime] = useState(() => (entry ? hm(entry.start) : nowHm()))
+  const [note, setNote] = useState(entry?.note ?? '')
   const save = async () => {
     if (!note.trim()) return document.getElementById('f-note')?.focus()
-    await add({ kid: kid.id, type: 'note', start: tsFromTime(time), details: {}, note: note.trim() })
-    onDone('Note saved')
+    await store(entry, { kid: kid.id, type: 'note', start: when(time, entry), details: {}, note: note.trim() })
+    onDone(entry ? 'Note updated' : 'Note saved')
   }
   return (
     <Sheet onClose={onClose}>
-      <h2>Add a note</h2>
+      <h2>{entry ? 'Edit note' : 'Add a note'}</h2>
       <TimeField value={time} onChange={setTime} />
       <NoteField value={note} onChange={setNote} required />
       <button className="save" onClick={save}>
-        Save
+        {entry ? 'Save changes' : 'Save'}
       </button>
+      {entry && <DeleteEntry entry={entry} onDone={onDone} />}
     </Sheet>
   )
 }

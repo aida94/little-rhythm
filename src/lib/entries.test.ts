@@ -34,3 +34,19 @@ describe('planSleep', () => {
     expect(planSleep('14:00', '13:00', [], now)).toHaveProperty('error')
   })
 })
+
+describe('planSleep when editing', () => {
+  it('keeps an old sleep on its own day', () => {
+    const now = at(0, 22)
+    // a nap two days ago at 13:00–14:00 moved to 13:30–14:30
+    expect(planSleep('13:30', '14:30', [], now, at(-2, 13))).toEqual({ start: at(-2, 13, 30), end: at(-2, 14, 30) })
+  })
+
+  it('keeps a night across midnight', () => {
+    expect(planSleep('20:30', '06:15', [], at(0, 9), at(-1, 20))).toEqual({ start: at(-1, 20, 30), end: at(0, 6, 15) })
+  })
+
+  it('refuses a wake time in the future', () => {
+    expect(planSleep('13:00', '16:00', [], at(0, 15), at(0, 13))).toHaveProperty('error')
+  })
+})
