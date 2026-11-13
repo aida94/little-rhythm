@@ -69,10 +69,10 @@ Other commands:
 
 A phone can only install the app from an **https** address, so the `dist/` folder must be hosted online. The hosted site holds only the app, never your data.
 
-1. Run `npm run build`.
-2. Host the `dist/` folder. Two easy options:
-   - **Netlify Drop**: drag the `dist` folder onto https://app.netlify.com/drop.
-   - **GitHub Pages**: if the site address ends in `/little-rhythm/`, build with `BASE_PATH=/little-rhythm/ npm run build`.
+The app is published on GitHub Pages: **https://aida94.github.io/little-rhythm/**
+
+1. To publish a new version, run `npm run deploy`. It builds the app and pushes it to the `gh-pages` branch.
+2. Wait about a minute for GitHub to update the site.
 3. On the phone, open the link:
    - **Android, Chrome**: ⋮ menu → **Install app**.
    - **iPhone, Safari or Chrome**: **Share** → **Add to Home Screen**.
