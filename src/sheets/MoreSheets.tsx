@@ -1,16 +1,18 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { KidForm } from '../components/KidForm'
 import { Field, Sheet } from '../components/ui'
 import { EntryRow } from '../views/TodayView'
 import { downloadBackup, readBackup, restoreBackup, wipeAll } from '../lib/backup'
 import { db, getSetting, removeKid, saveMenu } from '../lib/db'
 import { describeEntry } from '../lib/entries'
+import { AiError, getAiSettings } from '../lib/ai'
+import { parseSayAi } from '../lib/aiSay'
 import { DAYS, NUTRIENTS, keyNutrients } from '../lib/food'
 import { draftProblem, draftToKid, newKidDraft, type KidDraft } from '../lib/kids'
-import { parseSay } from '../lib/say'
+import { parseSay, type ParsedEntry } from '../lib/say'
 import { sampleEntries } from '../lib/seed'
-import { dayStart, hm } from '../lib/time'
+import { dayStart, hm, uid } from '../lib/time'
 import type { Entry, KidInfo, Menu } from '../lib/types'
 import { AiSettingsField } from './AiSettings'
 import type { SheetProps } from './EntrySheets'
@@ -50,24 +52,55 @@ export function MenuSheet({ kid, onClose, onDone, menu, day, slot }: SheetProps 
   )
 }
 
-/** Type or dictate a sentence; preview the entries it becomes; add them. */
+/** Type or dictate a sentence; preview the entries it becomes; add them.
+ *  With AI connected, the AI reads the sentence. Otherwise (or if the AI fails) simple rules do. */
 export function SaySheet({ kid, kids, onClose, onDone }: SheetProps & { kids: KidInfo[] }) {
   const [text, setText] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
   const [now] = useState(Date.now)
-  const parsed = text.trim() ? parseSay(text, kids, kid, now) : []
+  const ai = useLiveQuery(async () => !!(await getAiSettings())?.apiKey, [])
+  const [aiRead, setAiRead] = useState<{ text: string; entries: ParsedEntry[] } | null>(null)
+  const [reading, setReading] = useState(false)
+  const [aiError, setAiError] = useState<{ text: string; message: string } | null>(null)
+  const [removed, setRemoved] = useState<{ text: string; ids: string[] }>({ text: '', ids: [] })
+
+  const clean = text.trim()
+  const aiFresh = aiRead && aiRead.text === clean ? aiRead.entries : null
+  const aiFailed = aiError && aiError.text === clean ? aiError.message : ''
+  // Rules are used when there is no AI, or when the AI failed for this exact text.
+  const useRules = !ai || !!aiFailed
+  // Stable ids (by position) so leaving one out survives re-renders; real ids are given on save.
+  const ruled = useMemo(() => (clean ? parseSay(clean, kids, kid, now).map((e, i) => ({ ...e, id: `r${i}` })) : []), [clean, kids, kid, now])
+  const all = !clean ? [] : (aiFresh ?? (useRules ? ruled : []))
+  const gone = removed.text === clean ? removed.ids : []
+  const parsed = all.filter((e) => !gone.includes(e.id))
+  const needsReading = !!ai && !!clean && !aiFresh && !aiFailed
+
   const [first, second] = kids
   const examples = [
     `Today ${first.name} slept 3 hours from 1.00`,
     ...(second ? [`${second.name} had a 150 ml bottle at 7`] : []),
-    `${first.name} ate pasta with peas for lunch`,
+    `${first.name} had a few bites of pasta for lunch, then napped around 2ish until 3`,
     `${first.name} pooped at 10`,
   ]
+  const read = async () => {
+    setReading(true)
+    try {
+      const entries = await parseSayAi(clean, kids, kid)
+      setAiRead({ text: clean, entries })
+    } catch (e) {
+      setAiError({ text: clean, message: e instanceof AiError ? e.message : 'The AI could not read this.' })
+    } finally {
+      setReading(false)
+    }
+  }
   const save = async () => {
+    if (needsReading) return read()
     if (!parsed.length) return ref.current?.focus()
-    await db.entries.bulkAdd(parsed.map(({ said: _said, ...e }) => e))
+    await db.entries.bulkAdd(parsed.map(({ said: _said, ...e }) => ({ ...e, id: uid() })))
     onDone(parsed.length === 1 ? 'Added to the log' : `Added ${parsed.length} entries`)
   }
+  const source = aiFresh ? 'Read by AI' : useRules && parsed.length ? 'Read by simple rules' : ''
   return (
     <Sheet onClose={onClose}>
       <h2>Tell me what happened</h2>
@@ -83,31 +116,58 @@ export function SaySheet({ kid, kids, onClose, onDone }: SheetProps & { kids: Ki
           ))}
         </div>
       </Field>
-      <Field label="Will be added">
+      <Field label={source ? `Will be added · ${source}` : 'Will be added'}>
         <div className="timeline say-prev">
           {parsed.length ? (
             parsed.map((e) => {
               const who = kids.find((k) => k.id === e.kid)
-              const yesterday = e.start < dayStart(0) ? 'Yesterday ' : ''
-              return <PreviewRow key={e.id} e={e} now={now} who={who?.name ?? ''} prefix={yesterday} />
+              const yesterday = e.start < dayStart(0) ? (e.start < dayStart(-1) ? new Date(e.start).toLocaleDateString(undefined, { weekday: 'short' }) + ' ' : 'Yesterday ') : ''
+              return <PreviewRow key={e.id} e={e} now={now} who={who?.name ?? ''} prefix={yesterday} onRemove={() => setRemoved({ text: clean, ids: [...gone, e.id] })} />
             })
           ) : (
-            <div className="empty">Your entries will appear here before they are added.</div>
+            <div className="empty">
+              {reading
+                ? 'The AI is reading your message…'
+                : needsReading
+                  ? 'Tap "Read with AI" to see the entries before they are added.'
+                  : clean && aiFresh
+                    ? 'The AI found nothing to log. Try saying it another way.'
+                    : 'Your entries will appear here before they are added.'}
+            </div>
           )}
         </div>
       </Field>
-      <button className="save" onClick={save}>
-        Add to log
+      {aiFailed && (
+        <div className="hint" role="alert">
+          {aiFailed} The simple rules were used instead.
+        </div>
+      )}
+      {aiFresh && <div className="disclaim">Sent to the AI service without names. Check the entries, then add them.</div>}
+      {ai === false && <div className="disclaim">Connect an AI service in Settings to understand longer, freer sentences.</div>}
+      <button className="save" onClick={save} disabled={reading}>
+        {reading ? 'Reading…' : needsReading ? 'Read with AI' : 'Add to log'}
       </button>
     </Sheet>
   )
 }
 
 /** Preview line: kid name on the left; sleep shows its own times, other entries get the start time in front. */
-function PreviewRow({ e, now, who, prefix }: { e: Entry; now: number; who: string; prefix: string }) {
+function PreviewRow({ e, now, who, prefix, onRemove }: { e: Entry; now: number; who: string; prefix: string; onRemove: () => void }) {
   const d = describeEntry(e, now)
-  const det = e.type === 'sleep' ? (prefix ? 'Yesterday · ' : '') + d.det : prefix + hm(e.start) + (d.det ? ' · ' + d.det : '')
-  return <EntryRow e={e} now={now} time={who} det={det} />
+  const det = e.type === 'sleep' ? (prefix ? prefix.trim() + ' · ' : '') + d.det : prefix + hm(e.start) + (d.det ? ' · ' + d.det : '')
+  return (
+    <EntryRow
+      e={e}
+      now={now}
+      time={who}
+      det={det}
+      action={
+        <button className="prev-x" aria-label="Leave this one out" onClick={onRemove}>
+          ✕
+        </button>
+      }
+    />
+  )
 }
 
 export function SettingsSheet({ kids, entries, onClose, onDone }: Omit<SheetProps, 'kid'> & { kids: KidInfo[]; entries: Entry[] }) {

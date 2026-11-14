@@ -4,7 +4,7 @@ import type { Entry, KidInfo } from './types'
 
 /**
  * "Say it": turn a sentence like "today Mila slept 3 hours from 1.00" into log entries.
- * Simple rules for now. Later this can be replaced by an AI model reading the sentence.
+ * Simple rules, used when no AI is connected or the AI cannot be reached (see aiSay.ts).
  */
 
 export interface ParsedEntry extends Entry {
