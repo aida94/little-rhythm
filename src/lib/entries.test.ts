@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedEnd, planSleep } from './entries'
+import { describeEntry, feedEnd, planSleep, splitFood } from './entries'
 import { at } from './time'
 import type { Entry } from './types'
 
@@ -57,5 +57,18 @@ describe('feedEnd', () => {
     expect(feedEnd(breast)).toBe(at(0, 23, 10))
     const meal: Entry = { id: 'm', kid: 'a', type: 'feed', start: at(0, 12), details: { method: 'Meal' } }
     expect(feedEnd(meal)).toBe(at(0, 12))
+  })
+})
+
+describe('food entries', () => {
+  const food = (f: string): Entry => ({ id: 'x', kid: 'a', type: 'feed', start: at(0, 10), details: { method: 'Meal', food: f, amount: 'Most' } })
+  it('shows Food, or the time of day when there is one', () => {
+    expect(describeEntry(food('Apple'), now).what).toBe('Food')
+    expect(describeEntry(food('Snack: apple'), now)).toEqual({ what: 'Snack', det: 'apple · Most eaten' })
+    expect(describeEntry(food('Lunch'), now).what).toBe('Lunch')
+  })
+  it('splits time of day from the food', () => {
+    expect(splitFood('Dinner: pasta')).toEqual({ when: 'Dinner', what: 'pasta' })
+    expect(splitFood('Snacky bar')).toEqual({ when: '', what: 'Snacky bar' })
   })
 })

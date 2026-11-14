@@ -5,7 +5,7 @@ export type Gender = 'girl' | 'boy' | 'unspecified'
 /** Per-type extras. Fields are optional so new ones can be added without migrating old entries. */
 export interface Details {
   kind?: string // sleep: Nap | Night · diaper: Wet | Dirty | Pee | Poop | Both
-  method?: string // feed: Breast | Bottle | Solids | Meal
+  method?: string // feed: Breast | Bottle | Solids | Meal (Meal is shown as "Food")
   ml?: number | null
   minutes?: number | null
   side?: string

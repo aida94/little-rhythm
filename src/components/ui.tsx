@@ -3,7 +3,18 @@ import { useEffect, useRef, type ReactNode } from 'react'
 type ChipOption = string | [label: string, swatch: string]
 
 /** A row of choice buttons; one is selected. */
-export function ChipRow({ options, value, onChange }: { options: ChipOption[]; value?: string; onChange: (v: string) => void }) {
+export function ChipRow({
+  options,
+  value,
+  onChange,
+  labels,
+}: {
+  options: ChipOption[]
+  value?: string
+  onChange: (v: string) => void
+  /** Text to show instead of the saved value, e.g. { Meal: 'Food' }. */
+  labels?: Record<string, string>
+}) {
   return (
     <div className="chips">
       {options.map((o) => {
@@ -11,7 +22,7 @@ export function ChipRow({ options, value, onChange }: { options: ChipOption[]; v
         return (
           <button key={v} type="button" className="chip" aria-pressed={value === v} onClick={() => onChange(v)}>
             {Array.isArray(o) && <span className="swatch" style={{ background: o[1] }} />}
-            {v}
+            {labels?.[v] ?? v}
           </button>
         )
       })}

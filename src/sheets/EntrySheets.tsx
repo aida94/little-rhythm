@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChipRow, Field, Sheet } from '../components/ui'
 import { db } from '../lib/db'
-import { isPoop, planSleep } from '../lib/entries'
+import { MEAL_TIMES, isPoop, planSleep, splitFood } from '../lib/entries'
 import { isPotty } from '../lib/kids'
 import { H, MIN, dur, hm, tsFromTime, tsOnDay, uid } from '../lib/time'
 import type { Details, Entry, KidInfo, Stage } from '../lib/types'
@@ -175,7 +175,8 @@ export function FeedSheet({ kid, onClose, onDone, initial, entry }: SheetProps &
   const [ml, setMl] = useState(d?.ml ? String(d.ml) : '')
   const [minutes, setMinutes] = useState(d?.minutes ? String(d.minutes) : '')
   const [side, setSide] = useState(d?.side ?? 'Left')
-  const [food, setFood] = useState(d?.food ?? initial?.food ?? '')
+  const [mealTime, setMealTime] = useState(() => splitFood(d?.food ?? initial?.food).when)
+  const [food, setFood] = useState(() => splitFood(d?.food ?? initial?.food).what)
   const [amount, setAmount] = useState(d?.amount ?? 'Most')
   const [time, setTime] = useState(() => (entry ? hm(entry.start) : nowHm()))
   const [note, setNote] = useState(entry?.note ?? '')
@@ -183,7 +184,7 @@ export function FeedSheet({ kid, onClose, onDone, initial, entry }: SheetProps &
     const details: Details = { method }
     if (method === 'Bottle') Object.assign(details, { ml: +ml || null, minutes: +minutes || null })
     else if (method === 'Breast') Object.assign(details, { side, minutes: +minutes || null })
-    else Object.assign(details, { food: food.trim(), amount })
+    else Object.assign(details, { food: mealTime ? `${mealTime}: ${food.trim()}`.trim().replace(/:$/, '') : food.trim(), amount })
     await store(entry, { kid: kid.id, type: 'feed', start: when(time, entry), details, note: note.trim() || undefined })
     onDone(entry ? 'Feed updated' : 'Feed saved')
   }
@@ -196,7 +197,7 @@ export function FeedSheet({ kid, onClose, onDone, initial, entry }: SheetProps &
     <Sheet onClose={onClose}>
       <h2>{entry ? 'Edit feed' : 'Log a feed'}</h2>
       <Field label="Type">
-        <ChipRow options={feedOptions(baby, method)} value={method} onChange={setMethod} />
+        <ChipRow options={feedOptions(baby, method)} value={method} onChange={setMethod} labels={{ Meal: 'Food' }} />
       </Field>
       {method === 'Bottle' ? (
         <>
@@ -221,6 +222,9 @@ export function FeedSheet({ kid, onClose, onDone, initial, entry }: SheetProps &
         </>
       ) : (
         <>
+          <Field label="When (optional)">
+            <ChipRow options={MEAL_TIMES} value={mealTime} onChange={(v) => setMealTime(v === mealTime ? '' : v)} />
+          </Field>
           <Field label={`What did ${kid.name} eat?`} htmlFor="f-food">
             <input type="text" id="f-food" value={food} placeholder={baby ? 'Mashed banana' : 'Pasta with peas'} onChange={(e) => setFood(e.target.value)} />
           </Field>

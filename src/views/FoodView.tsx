@@ -33,7 +33,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot }:
       <div className="card">
         <div className="chart-h">
           <h3>Weekly menu</h3>
-          <span className="tag">{baby ? 'Solids' : 'Meals'}</span>
+          <span className="tag">{baby ? 'Solids' : 'Food'}</span>
         </div>
         <div className="days">
           {DAYS.map((d, i) => (

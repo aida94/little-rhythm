@@ -1,6 +1,15 @@
 import { D, H, MIN, dayStart, dur, hm, tsFromTime, tsOnDay } from './time'
 import type { Details, Entry, EntryType } from './types'
 
+/** Times of day for food. A food entry can start with one, e.g. "Snack: apple". */
+export const MEAL_TIMES = ['Breakfast', 'Lunch', 'Snack', 'Dinner']
+
+/** Split "Snack: apple" into its time of day and the food. */
+export function splitFood(food?: string | null): { when: string; what: string } {
+  const m = (food ?? '').match(/^(Breakfast|Lunch|Snack|Dinner)(?::\s*(.*))?$/s)
+  return m ? { when: m[1], what: m[2] ?? '' } : { when: '', what: food ?? '' }
+}
+
 export const isPoop = (d?: Details) => ['Dirty', 'Poop', 'Both'].includes(d?.kind ?? '')
 export const isMilk = (d: Details) => d.method === 'Bottle' || d.method === 'Breast'
 
@@ -21,7 +30,8 @@ export function describeEntry(e: Entry, now = Date.now()): { what: string; det: 
   if (e.type === 'feed') {
     if (d.method === 'Bottle') return { what: 'Bottle', det: [`${d.ml || '?'} ml`, d.minutes ? `${d.minutes} min` : ''].filter(Boolean).join(' · ') }
     if (d.method === 'Breast') return { what: 'Breastfeed', det: [d.side, d.minutes ? `${d.minutes} min` : ''].filter(Boolean).join(' · ') }
-    return { what: d.method === 'Meal' ? 'Meal' : 'Solids', det: [d.food, d.amount && `${d.amount} eaten`].filter(Boolean).join(' · ') }
+    const f = splitFood(d.food)
+    return { what: f.when || (d.method === 'Meal' ? 'Food' : 'Solids'), det: [f.what, d.amount && `${d.amount} eaten`].filter(Boolean).join(' · ') }
   }
   if (e.type === 'diaper') {
     const potty = ['Pee', 'Poop'].includes(d.kind ?? '') || !!d.where
