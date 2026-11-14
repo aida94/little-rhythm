@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AiError, getAiSettings } from '../lib/ai'
 import { DAYS, GROUPS, NUTRIENTS, keyNutrients, slotsFor, type GroupId } from '../lib/food'
 import { analyseFoodsAi, foodKey, getFactsCache, getMenuNote, localFacts, planMenu, saveAiMenu, weekIntake } from '../lib/foodAi'
+import { localEmoji } from '../lib/foodEmoji'
 import { todayIdx } from '../lib/time'
 import type { Entry, KidInfo, Menu } from '../lib/types'
 
@@ -156,17 +157,19 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
                   <div className="ate-day" key={d.date}>
                     <small>{dayName(i)}</small>
                     <div>
-                      {d.foods.map((f, j) => (
-                        <span className={`ate-food${f.amount === 'None' ? ' refused' : ''}`} key={j}>
-                          {f.emoji && <span aria-hidden="true">{f.emoji} </span>}
-                          {f.text || f.when}
-                          {f.amount && <em> · {AMOUNT_SHORT[f.amount] ?? f.amount}</em>}
-                        </span>
-                      ))}
+                      {d.foods.map((f, j) => {
+                        const name = `${f.text || f.when}${f.amount ? `, ${AMOUNT_SHORT[f.amount] ?? f.amount} eaten` : ''}`
+                        return (
+                          <span className={`ate-food${f.amount === 'None' ? ' refused' : ''}`} key={j} role="img" aria-label={name} title={name}>
+                            {f.emoji || localEmoji(f.text) || '🍽️'}
+                          </span>
+                        )
+                      })}
                     </div>
                   </div>
                 ))}
             </div>
+            {foods.some((f) => f.amount === 'None') && <div className="disclaim">Greyed out: not eaten.</div>}
             <div className="sub nut-sub">Key nutrients for {kid.age}</div>
             {rows.map((r) => {
               const [cls, label] = r.c >= 5 ? ['good', 'Good'] : r.c >= 2 ? ['low', 'Low'] : ['miss', 'Missing']
