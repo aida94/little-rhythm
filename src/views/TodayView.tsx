@@ -6,7 +6,7 @@ import { isPotty } from '../lib/kids'
 import { dayStart, dur, hm } from '../lib/time'
 import type { Entry, KidInfo } from '../lib/types'
 
-export type QuickAction = 'sleep' | 'earlierSleep' | 'feed' | 'diaper' | 'note'
+export type QuickAction = 'sleep' | 'feed' | 'diaper' | 'note'
 
 interface Props {
   kid: KidInfo
@@ -38,9 +38,6 @@ export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit }
               {dur(now - running.start)}
             </span>
             <span className="lbl">asleep since {hm(running.start)}</span>
-            <button className="status-link" onClick={() => onAction('earlierSleep')}>
-              + Add an earlier sleep
-            </button>
           </div>
         ) : (
           <div className="status-main">

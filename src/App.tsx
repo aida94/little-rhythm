@@ -91,7 +91,7 @@ export default function App() {
       /* private mode */
     }
   }
-  const quick = (a: QuickAction) => setSheet({ type: a === 'earlierSleep' ? 'sleep' : a === 'sleep' && runningSleep(mine) ? 'wake' : a })
+  const quick = (a: QuickAction) => setSheet({ type: a === 'sleep' && runningSleep(mine) ? 'wake' : a })
   const running = runningSleep(mine)
   const sheetProps = { kid, onClose: close, onDone: doneToToday }
   const editing = sheet?.type === 'edit' ? mine.find((e) => e.id === sheet.id) : undefined
