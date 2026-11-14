@@ -228,3 +228,33 @@ input[type=text],input[type=number],input[type=url],input[type=password]{height:
 .food-input{position:relative}
 .food-input input{padding-right:84px}
 .food-input .food-emoji{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:18px;letter-spacing:2px;pointer-events:none}
+
+/* Say it by voice: see-through layer over Today */
+.voice{position:absolute;inset:0;z-index:8;display:grid;align-items:end;padding:16px 16px calc(96px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg) 62%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:voice-in .2s ease-out}
+.voice-card{background:var(--surface);border-radius:24px;padding:22px 18px 16px;display:grid;justify-items:center;gap:10px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.voice-orb{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--brand);color:var(--on-brand)}
+.voice-orb svg{width:28px;height:28px}
+.voice-orb.listening{animation:voice-pulse 1.4s ease-in-out infinite}
+.voice-orb.reading{background:var(--brand-2-soft)}
+.voice-orb.problem{background:var(--surface-2);color:var(--muted)}
+.voice-spinner{width:30px;height:30px;border-radius:50%;border:3px solid var(--brand-2);border-right-color:transparent;animation:voice-spin .8s linear infinite}
+.voice-title{font-family:var(--display);font-size:19px}
+.voice-text{font-size:15px;line-height:1.4;max-height:30vh;overflow:auto;margin:0}
+.voice-text.muted{color:var(--muted);font-size:13.5px}
+.voice-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-top:4px}
+.voice-done{border:0;border-radius:14px;padding:11px 12px;font-weight:700;font-size:14px;background:var(--brand);color:var(--on-brand)}
+.voice-link{border:0;background:none;color:var(--muted);font-size:13px;padding:4px 8px;text-decoration:underline}
+@keyframes voice-in{from{opacity:0}}
+@keyframes voice-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--brand) 45%,transparent)}50%{box-shadow:0 0 0 16px color-mix(in srgb,var(--brand) 0%,transparent)}}
+@keyframes voice-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.voice-orb.listening,.voice-spinner{animation-duration:3s}}
+
+/* Entries just added by Say it: highlighted, then fade to normal */
+.item{transition:background-color 1.2s ease,box-shadow 1.2s ease}
+.item.fresh{background:var(--brand-2-soft);box-shadow:inset 3px 0 0 var(--brand-2);transition:none;animation:fresh-in .35s ease-out}
+.swipe-fg:has(.item.fresh){background:var(--brand-2-soft)}
+@keyframes fresh-in{from{opacity:0;transform:translateY(-6px)}}
+
+/* Toast with an Undo button */
+.toast.with-undo{display:flex;align-items:center;gap:12px;padding-right:6px}
+.toast-undo{border:0;background:none;color:var(--brand-2);font-weight:700;font-size:13px;padding:4px 8px}

@@ -8,12 +8,12 @@ import { db, getSetting, removeKid, saveMenu } from '../lib/db'
 import { describeEntry } from '../lib/entries'
 import { AiError, getAiSettings } from '../lib/ai'
 import { parseSayAi } from '../lib/aiSay'
-import { improveEmojiLater, localEmoji } from '../lib/foodEmoji'
+import { addParsed } from '../lib/sayStore'
 import { DAYS, NUTRIENTS, keyNutrients } from '../lib/food'
 import { draftProblem, draftToKid, newKidDraft, type KidDraft } from '../lib/kids'
 import { parseSay, type ParsedEntry } from '../lib/say'
 import { sampleEntries } from '../lib/seed'
-import { dayStart, hm, uid } from '../lib/time'
+import { dayStart, hm } from '../lib/time'
 import type { Entry, KidInfo, Menu } from '../lib/types'
 import { AiSettingsField } from './AiSettings'
 import type { SheetProps } from './EntrySheets'
@@ -55,8 +55,15 @@ export function MenuSheet({ kid, onClose, onDone, menu, day, slot }: SheetProps 
 
 /** Type or dictate a sentence; preview the entries it becomes; add them.
  *  With AI connected, the AI reads the sentence. Otherwise (or if the AI fails) simple rules do. */
-export function SaySheet({ kid, kids, onClose, onDone }: SheetProps & { kids: KidInfo[] }) {
-  const [text, setText] = useState('')
+export function SaySheet({
+  kid,
+  kids,
+  onClose,
+  onDone,
+  onAdded,
+  initialText = '',
+}: SheetProps & { kids: KidInfo[]; onAdded?: (ids: string[]) => void; initialText?: string }) {
+  const [text, setText] = useState(initialText)
   const ref = useRef<HTMLTextAreaElement>(null)
   const [now] = useState(Date.now)
   const ai = useLiveQuery(async () => !!(await getAiSettings())?.apiKey, [])
@@ -93,19 +100,9 @@ export function SaySheet({ kid, kids, onClose, onDone }: SheetProps & { kids: Ki
   const save = async () => {
     if (needsReading) return read()
     if (!parsed.length) return ref.current?.focus()
-    const later: string[] = []
-    const rows = parsed.map(({ said: _said, ...e }) => {
-      const row = { ...e, id: uid(), details: { ...e.details } }
-      if (row.type === 'feed' && row.details.food && !row.details.emoji) {
-        const emoji = localEmoji(row.details.food)
-        if (emoji) row.details.emoji = emoji
-        later.push(row.id) // the AI may find better emoji afterwards
-      }
-      return row
-    })
-    await db.entries.bulkAdd(rows)
-    later.forEach((id) => void improveEmojiLater(id))
-    onDone(parsed.length === 1 ? 'Added to the log' : `Added ${parsed.length} entries`)
+    const rows = await addParsed(parsed)
+    if (onAdded) return onAdded(rows.map((r) => r.id))
+    onDone(rows.length === 1 ? 'Added to the log' : `Added ${rows.length} entries`)
   }
   const source = aiFresh ? 'Read by AI' : useRules && parsed.length ? 'Read by simple rules' : ''
   return (

@@ -30,7 +30,7 @@ Charts are plain SVG drawn by React. No chart library is used.
 
 The Insights tab can ask an AI for a weekly summary and answer questions about a child.
 
-**Say it** also uses the AI when it is connected: tap **Read with AI** to turn a free sentence into entries, check them, then add them. Kids' names are swapped for "Child A", "Child B" before sending and put back on the device. Without AI, or if the AI cannot be reached, simple built-in rules read the sentence instead.
+**Say it** listens as soon as you tap it (the browser's own speech recognition turns your voice into text). When you stop talking, the AI reads the text and the entries are added straight to Today, highlighted for a few seconds, with **Undo** in case something is wrong. **Type instead** opens the typing screen, where you can check entries before adding them. Kids' names are swapped for "Child A", "Child B" before sending and put back on the device. Without AI, or if the AI cannot be reached, simple built-in rules read the sentence instead.
 
 - It works with any **OpenAI-compatible** AI service. In **Settings → AI assistant**, add the service's **base URL**, your **API key** and the **model name**. The app checks the connection before saving.
   - Example: DeepSeek uses base URL `https://api.deepseek.com` and model `deepseek-flash`.

@@ -17,9 +17,11 @@ interface Props {
   onWeek: () => void
   onDelete: (id: string) => void
   onEdit: (id: string) => void
+  /** Entries just added by Say it, shown highlighted for a moment. */
+  fresh?: string[]
 }
 
-export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit }: Props) {
+export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit, fresh = [] }: Props) {
   const running = runningSleep(mine)
   const lastSleep = lastFinishedSleep(mine)
   const lastFeed = lastOf(mine, 'feed')
@@ -89,7 +91,7 @@ export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit }
         {items.length ? (
           items.map((e) => (
             <SwipeToDelete key={e.id} onDelete={() => onDelete(e.id)}>
-              <EntryRow e={e} now={now} time={hm(e.start)} onOpen={() => onEdit(e.id)} />
+              <EntryRow e={e} now={now} time={hm(e.start)} onOpen={() => onEdit(e.id)} fresh={fresh.includes(e.id)} />
             </SwipeToDelete>
           ))
         ) : (
@@ -108,6 +110,7 @@ export function EntryRow({
   det,
   action,
   onOpen,
+  fresh,
 }: {
   e: Entry
   now: number
@@ -116,6 +119,8 @@ export function EntryRow({
   action?: React.ReactNode
   /** Makes the row tappable, e.g. to edit the entry. */
   onOpen?: () => void
+  /** Just added: highlighted, then fades to normal. */
+  fresh?: boolean
 }) {
   const d = describeEntry(e, now)
   const detail = det ?? d.det
@@ -135,7 +140,7 @@ export function EntryRow({
       }
     : {}
   return (
-    <div className={`item${onOpen ? ' tap' : ''}`} {...open}>
+    <div className={`item${onOpen ? ' tap' : ''}${fresh ? ' fresh' : ''}`} {...open}>
       <time>{time}</time>
       <span className={`ic ${e.type}${emoji ? ' emoji' : ''}`} title={e.details?.emoji}>
         {emoji || <Icon name={e.type} />}
