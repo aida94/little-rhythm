@@ -1,7 +1,8 @@
 import { AiError, chat } from './ai'
 import { getSetting, setSetting } from './db'
 import { splitFood } from './entries'
-import { DAYS, GROUPS, NUTRIENTS, analyse, slotsFor, type GroupId, type NutrientId } from './food'
+import { DAYS, GROUPS, NUTRIENTS, analyseParts, slotsFor, type GroupId, type NutrientId } from './food'
+import { cleanEmoji, localEmoji } from './foodEmoji'
 import { D, dayStart } from './time'
 import type { Entry, KidInfo, Menu } from './types'
 
@@ -13,14 +14,24 @@ import type { Entry, KidInfo, Menu } from './types'
  * Only food text, amounts and age are sent. Never names.
  */
 
+/** One single food inside a meal, e.g. "milk" in "muesli with milk and nuts". */
+export interface FoodPart {
+  name: string
+  emoji?: string
+  nutrients: NutrientId[]
+}
+
 export interface FoodFacts {
   groups: Partial<Record<GroupId, number>> // servings in one child-sized portion
   nutrients: NutrientId[]
+  /** The single foods in the meal, each with its own nutrients. */
+  parts?: FoodPart[]
 }
 
 const GROUP_IDS = GROUPS.map(([g]) => g)
 const NUTRIENT_IDS = Object.keys(NUTRIENTS) as NutrientId[]
-const CACHE = 'food-facts'
+// v2: answers now include the single foods ("parts"); older answers are asked again.
+const CACHE = 'food-facts-2'
 
 /** Cache key: the food without "Lunch:", lower case, single spaces. */
 export const foodKey = (food: string | null | undefined) => splitFood(food).what.toLowerCase().replace(/\s+/g, ' ').trim()
@@ -29,11 +40,36 @@ export const foodKey = (food: string | null | undefined) => splitFood(food).what
 export function localFacts(food: string): FoodFacts {
   const groups: Partial<Record<GroupId, number>> = {}
   const nutrients = new Set<NutrientId>()
-  for (const [g, ns] of analyse(food)) {
+  const parts: FoodPart[] = []
+  for (const [name, g, ns] of analyseParts(splitFood(food).what)) {
     groups[g] = (groups[g] ?? 0) + 1
     ns.forEach((n) => nutrients.add(n))
+    parts.push({ name: NICE[name] ?? name, emoji: localEmoji(name) || undefined, nutrients: ns })
   }
-  return { groups, nutrients: [...nutrients] }
+  return { groups, nutrients: [...nutrients], parts }
+}
+
+/** Readable names for the built-in list's short match words. */
+const NICE: Record<string, string> = { berr: 'berries', veg: 'vegetables', oat: 'oats', nut: 'nuts', seed: 'seeds', pea: 'peas', bean: 'beans', lentil: 'lentils', egg: 'egg' }
+
+/** AI facts with the built-in list added on top, so a nutrient the AI left out
+ *  (like iron in egg) still counts. Groups come from the AI when it has them. */
+export function mergeFacts(ai: FoodFacts | undefined, local: FoodFacts): FoodFacts {
+  if (!ai) return local
+  const parts: FoodPart[] = (ai.parts ?? []).map((p) => ({ ...p, nutrients: [...p.nutrients] }))
+  for (const lp of local.parts ?? []) {
+    const a = lp.name.toLowerCase().replace(/s$/, '')
+    const same = parts.find((p) => {
+      const b = p.name.toLowerCase().replace(/s$/, '')
+      return b.includes(a) || a.includes(b)
+    })
+    if (same) {
+      lp.nutrients.forEach((n) => same.nutrients.includes(n) || same.nutrients.push(n))
+      same.emoji ??= lp.emoji
+    } else parts.push({ ...lp, nutrients: [...lp.nutrients] })
+  }
+  const nutrients = new Set([...ai.nutrients, ...local.nutrients, ...parts.flatMap((p) => p.nutrients)])
+  return { groups: Object.keys(ai.groups).length ? ai.groups : local.groups, nutrients: [...nutrients], parts: parts.length ? parts : undefined }
 }
 
 export const getFactsCache = async () => (await getSetting<Record<string, FoodFacts>>(CACHE)) ?? {}
@@ -77,7 +113,12 @@ export function weekIntake(mine: Entry[], facts: (food: string) => FoodFacts): D
       if (!share) continue
       const f = facts(d.food)
       for (const g of GROUP_IDS) day.groups[g] += (f.groups[g] ?? 0) * share
-      f.nutrients.forEach((n) => credit(n, { text: what || when, emoji: d.emoji, amount: d.amount }))
+      if (f.parts?.length) {
+        // Credit each single food for its own nutrients (milk for vitamin D, not the whole breakfast).
+        for (const p of f.parts) p.nutrients.forEach((n) => credit(n, { text: p.name, emoji: p.emoji || localEmoji(p.name) || undefined, amount: d.amount }))
+        // Anything the meal has that no part claimed: credit the meal itself.
+        f.nutrients.filter((n) => !f.parts!.some((p) => p.nutrients.includes(n))).forEach((n) => credit(n, { text: what || when, emoji: d.emoji, amount: d.amount }))
+      } else f.nutrients.forEach((n) => credit(n, { text: what || when, emoji: d.emoji, amount: d.amount }))
     }
     days.push(day)
   }
@@ -86,17 +127,26 @@ export function weekIntake(mine: Entry[], facts: (food: string) => FoodFacts): D
 
 const num = (v: unknown) => (typeof v === 'number' && isFinite(v) && v >= 0 ? Math.min(v, 4) : 0)
 
+const readNutrients = (v: unknown) => (Array.isArray(v) ? ([...new Set(v.filter((n) => NUTRIENT_IDS.includes(n as NutrientId)))] as NutrientId[]) : [])
+
 /** Check the AI's facts for one food. */
 export function readFacts(raw: unknown): FoodFacts | null {
   if (!raw || typeof raw !== 'object') return null
-  const r = raw as { groups?: Record<string, unknown>; nutrients?: unknown }
+  const r = raw as { groups?: Record<string, unknown>; nutrients?: unknown; parts?: unknown }
   const groups: Partial<Record<GroupId, number>> = {}
   for (const g of GROUP_IDS) {
     const v = num(r.groups?.[g])
     if (v) groups[g] = Math.round(v * 4) / 4
   }
-  const nutrients = Array.isArray(r.nutrients) ? (r.nutrients.filter((n) => NUTRIENT_IDS.includes(n as NutrientId)) as NutrientId[]) : []
-  return { groups, nutrients: [...new Set(nutrients)] }
+  const parts: FoodPart[] = Array.isArray(r.parts)
+    ? r.parts
+        .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && typeof (p as { name?: unknown }).name === 'string')
+        .slice(0, 8)
+        .map((p) => ({ name: (p.name as string).trim().slice(0, 40), emoji: cleanEmoji(p.emoji).slice(0, 8) || undefined, nutrients: readNutrients(p.nutrients) }))
+        .filter((p) => p.name)
+    : []
+  const nutrients = new Set([...readNutrients(r.nutrients), ...parts.flatMap((p) => p.nutrients)])
+  return { groups, nutrients: [...nutrients], ...(parts.length ? { parts } : {}) }
 }
 
 /** Ask the AI about foods it has not seen yet (up to 40 at a time). Saves the answers in the cache. */
@@ -112,11 +162,12 @@ export async function analyseFoodsAi(foods: string[]): Promise<number> {
 Groups: veg, fruit, grain, protein, dairy. Use 0.25 steps, for example pasta with peas = {"grain":1,"veg":0.5}.
 Nutrients (only these ids): ${NUTRIENT_IDS.join(', ')} (vitac means vitamins A and C, fats means healthy fats, vitd means vitamin D).
 Drinks: water and juice have no groups; milk is dairy. Sweets and snacks may have no groups.
+Also split each meal into its single foods ("parts"), each with one food emoji and only the nutrients that single food gives. Example: muesli with milk and nuts = parts muesli (🥣: iron, fiber), milk (🥛: calcium, vitd), nuts (🥜: fats, protein). Eggs give iron, vitd, fats and protein.
 Reply in json only.`,
       },
       {
         role: 'user',
-        content: `Foods:\n${todo.map((f, i) => `${i + 1}. ${f.slice(0, 120)}`).join('\n')}\n\nReply in json only, one item per food, same order:\n{"foods":[{"food":"pasta with peas","groups":{"grain":1,"veg":0.5},"nutrients":["fiber","protein"]}]}`,
+        content: `Foods:\n${todo.map((f, i) => `${i + 1}. ${f.slice(0, 120)}`).join('\n')}\n\nReply in json only, one item per food, same order:\n{"foods":[{"food":"pasta with peas","groups":{"grain":1,"veg":0.5},"nutrients":["fiber","protein","vitac"],"parts":[{"name":"pasta","emoji":"🍝","nutrients":["fiber"]},{"name":"peas","emoji":"🫛","nutrients":["fiber","protein","vitac"]}]}]}`,
       },
     ],
     { json: true, maxTokens: 3000 },

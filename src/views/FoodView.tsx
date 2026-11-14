@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { AiError, getAiSettings } from '../lib/ai'
 import { DAYS, GROUPS, NUTRIENTS, keyNutrients, slotsFor, type GroupId, type NutrientId } from '../lib/food'
-import { analyseFoodsAi, foodKey, getFactsCache, getMenuNote, localFacts, planMenu, saveAiMenu, weekIntake } from '../lib/foodAi'
+import { analyseFoodsAi, foodKey, getFactsCache, getMenuNote, localFacts, mergeFacts, planMenu, saveAiMenu, weekIntake } from '../lib/foodAi'
 import { localEmoji } from '../lib/foodEmoji'
 import { todayIdx } from '../lib/time'
 import type { Entry, KidInfo, Menu } from '../lib/types'
@@ -32,7 +32,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
   const note = useLiveQuery(() => getMenuNote(kid.id), [kid.id])
 
   // Food facts: from the AI when it has seen the food, else from the built-in list.
-  const facts = (food: string) => cache?.[foodKey(food)] ?? localFacts(food)
+  const facts = (food: string) => mergeFacts(cache?.[foodKey(food)], localFacts(food))
   const days = weekIntake(mine, facts)
   const foods = days.flatMap((d) => d.foods)
   const missing = [...new Set(foods.map((f) => foodKey(f.text)))].filter((k) => k && cache && !(k in cache))

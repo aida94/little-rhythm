@@ -9,6 +9,11 @@ const FOODS: Record<string, [GroupId, NutrientId[]]> = {
   'sweet potato': ['veg', ['vitac', 'fiber']],
   'iron-fortified cereal': ['grain', ['iron', 'zinc']],
   cereal: ['grain', ['iron']],
+  muesli: ['grain', ['iron', 'zinc', 'fiber']],
+  granola: ['grain', ['iron', 'fiber']],
+  nut: ['protein', ['fats', 'protein', 'zinc']],
+  almond: ['protein', ['fats', 'protein', 'calcium']],
+  seed: ['protein', ['fats', 'fiber']],
   lentil: ['protein', ['iron', 'zinc', 'fiber', 'protein']],
   bean: ['protein', ['iron', 'fiber', 'protein']],
   beef: ['protein', ['iron', 'zinc', 'protein']],
@@ -46,15 +51,21 @@ const FOODS: Record<string, [GroupId, NutrientId[]]> = {
 const FOOD_KEYS = Object.keys(FOODS).sort((a, b) => b.length - a.length)
 
 export function analyse(text: string): [GroupId, NutrientId[]][] {
+  return analyseParts(text).map(([, g, ns]) => [g, ns])
+}
+
+/** Like analyse, but also returns which food word matched (e.g. "egg"), in the order written. */
+export function analyseParts(text: string): [string, GroupId, NutrientId[]][] {
   let t = (text || '').toLowerCase()
-  const out: [GroupId, NutrientId[]][] = []
+  const out: [number, string, GroupId, NutrientId[]][] = []
   for (const k of FOOD_KEYS) {
-    if (t.includes(k)) {
-      out.push(FOODS[k])
-      t = t.split(k).join(' ')
+    const at = t.indexOf(k)
+    if (at >= 0) {
+      out.push([at, k, ...FOODS[k]])
+      t = t.split(k).join(' '.repeat(k.length))
     }
   }
-  return out
+  return out.sort((a, b) => a[0] - b[0]).map(([, k, g, ns]) => [k, g, ns])
 }
 
 export const NUTRIENTS: Record<NutrientId, { name: string; why: string; foods: string }> = {

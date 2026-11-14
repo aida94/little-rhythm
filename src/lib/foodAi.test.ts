@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foodKey, localFacts, readFacts, weekIntake, type FoodFacts } from './foodAi'
+import { foodKey, localFacts, mergeFacts, readFacts, weekIntake, type FoodFacts } from './foodAi'
 import { at } from './time'
 import type { Entry } from './types'
 
@@ -35,5 +35,32 @@ describe('readFacts', () => {
   it('keeps known groups and nutrients only', () => {
     expect(readFacts({ groups: { veg: 0.6, sweets: 2, grain: -1 }, nutrients: ['iron', 'magic', 'iron'] })).toEqual({ groups: { veg: 0.5 }, nutrients: ['iron'] })
     expect(readFacts('nope')).toBeNull()
+  })
+})
+
+describe('single foods in a meal', () => {
+  const breakfast = (facts: (f: string) => FoodFacts) =>
+    weekIntake([{ id: 'm', kid: 'a', type: 'feed', start: at(0, 8), details: { method: 'Meal', food: 'Breakfast: muesli with milk and nuts', amount: 'All' } }], facts)[6]
+
+  it('credits vitamin D to the milk only, not the whole breakfast', () => {
+    const day = breakfast(localFacts)
+    expect(day.sources.vitd?.map((s) => s.text)).toEqual(['milk'])
+    expect(day.sources.vitd?.[0].emoji).toBe('🥛')
+    expect(day.sources.iron?.map((s) => s.text)).toEqual(['muesli'])
+  })
+
+  it('keeps a nutrient the AI left out (iron in egg)', () => {
+    const ai: FoodFacts = { groups: { protein: 1 }, nutrients: ['protein', 'vitd'], parts: [{ name: 'Egg', emoji: '🥚', nutrients: ['protein', 'vitd'] }] }
+    const merged = mergeFacts(ai, localFacts('egg'))
+    expect(merged.nutrients).toContain('iron')
+    expect(merged.parts).toHaveLength(1)
+    expect(merged.parts![0].nutrients).toContain('iron')
+    expect(merged.groups).toEqual({ protein: 1 })
+  })
+
+  it('reads parts from the AI answer', () => {
+    const f = readFacts({ groups: { grain: 1 }, nutrients: [], parts: [{ name: 'milk', emoji: '🥛 milk', nutrients: ['vitd', 'x'] }, { nope: 1 }] })
+    expect(f?.parts).toEqual([{ name: 'milk', emoji: '🥛', nutrients: ['vitd'] }])
+    expect(f?.nutrients).toEqual(['vitd'])
   })
 })
