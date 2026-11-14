@@ -30,8 +30,8 @@ export interface FoodFacts {
 
 const GROUP_IDS = GROUPS.map(([g]) => g)
 const NUTRIENT_IDS = Object.keys(NUTRIENTS) as NutrientId[]
-// v2: answers now include the single foods ("parts"); older answers are asked again.
-const CACHE = 'food-facts-2'
+// v3: answers include the single foods ("parts") and count written numbers ("2 eggs"); older answers are asked again.
+const CACHE = 'food-facts-3'
 
 /** Cache key: the food without "Lunch:", lower case, single spaces. */
 export const foodKey = (food: string | null | undefined) => splitFood(food).what.toLowerCase().replace(/\s+/g, ' ').trim()
@@ -41,8 +41,9 @@ export function localFacts(food: string): FoodFacts {
   const groups: Partial<Record<GroupId, number>> = {}
   const nutrients = new Set<NutrientId>()
   const parts: FoodPart[] = []
-  for (const [name, g, ns] of analyseParts(splitFood(food).what)) {
-    groups[g] = (groups[g] ?? 0) + 1
+  for (const [name, g, ns, servings] of analyseParts(splitFood(food).what)) {
+    // "2 boiled eggs" counts 2 servings; small foods like crackers count per a handful.
+    groups[g] = (groups[g] ?? 0) + servings
     ns.forEach((n) => nutrients.add(n))
     parts.push({ name: NICE[name] ?? name, emoji: localEmoji(name) || undefined, nutrients: ns })
   }
@@ -135,7 +136,7 @@ export function readFacts(raw: unknown): FoodFacts | null {
   const r = raw as { groups?: Record<string, unknown>; nutrients?: unknown; parts?: unknown }
   const groups: Partial<Record<GroupId, number>> = {}
   for (const g of GROUP_IDS) {
-    const v = num(r.groups?.[g])
+    const v = num(r.groups?.[g]) // capped at 4 servings
     if (v) groups[g] = Math.round(v * 4) / 4
   }
   const parts: FoodPart[] = Array.isArray(r.parts)
@@ -160,6 +161,7 @@ export async function analyseFoodsAi(foods: string[]): Promise<number> {
         role: 'system',
         content: `You are a children's nutrition helper. For each food a young child ate, give the food groups in servings for one child-sized portion, and the key nutrients it is a good source of.
 Groups: veg, fruit, grain, protein, dairy. Use 0.25 steps, for example pasta with peas = {"grain":1,"veg":0.5}.
+If the text gives a number, count it: the servings are for the amount written. One egg, one slice of bread or one cup of milk is 1 serving, so "2 boiled eggs" = {"protein":2} and "3 slices of toast" = {"grain":3}. Small foods count by the handful: 4 crackers or 10 berries is about 1 serving. Without a number, give one child-sized portion.
 Nutrients (only these ids): ${NUTRIENT_IDS.join(', ')} (vitac means vitamins A and C, fats means healthy fats, vitd means vitamin D).
 Drinks: water and juice have no groups; milk is dairy. Sweets and snacks may have no groups.
 Also split each meal into its single foods ("parts"), each with one food emoji and only the nutrients that single food gives. Example: muesli with milk and nuts = parts muesli (🥣: iron, fiber), milk (🥛: calcium, vitd), nuts (🥜: fats, protein). Eggs give iron, vitd, fats and protein.

@@ -64,3 +64,33 @@ describe('single foods in a meal', () => {
     expect(f?.nutrients).toEqual(['vitd'])
   })
 })
+
+describe('numbers in food', () => {
+  const protein = (food: string) => localFacts(food).groups.protein
+  const grain = (food: string) => localFacts(food).groups.grain
+
+  it('counts a written number', () => {
+    expect(protein('egg')).toBe(1)
+    expect(protein('2 boiled egg')).toBe(2)
+    expect(protein('two eggs')).toBe(2)
+    expect(grain('3 slices of toast')).toBe(3)
+    expect(protein('half an egg')).toBe(0.5)
+  })
+
+  it('counts small foods by the handful', () => {
+    expect(grain('2 crackers')).toBe(0.5)
+    expect(grain('8 crackers')).toBe(2)
+  })
+
+  it('does not count bites, spoons or big numbers as portions', () => {
+    expect(grain('a few bites of pasta')).toBe(1)
+    expect(localFacts('3 spoons of yogurt').groups.dairy).toBe(1)
+    expect(grain('150 g pasta')).toBe(1)
+    expect(protein('10 eggs')).toBe(4)
+  })
+
+  it('weights the number by how much was eaten', () => {
+    const [today] = weekIntake([meal('e', 0, 'Breakfast: 2 boiled eggs', 'Half')], localFacts).slice(-1)
+    expect(today.groups.protein).toBe(1)
+  })
+})

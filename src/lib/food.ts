@@ -55,18 +55,40 @@ export function analyse(text: string): [GroupId, NutrientId[]][] {
 }
 
 /** Like analyse, but also returns which food word matched (e.g. "egg"), in the order written. */
-export function analyseParts(text: string): [string, GroupId, NutrientId[]][] {
-  let t = (text || '').toLowerCase()
-  const out: [number, string, GroupId, NutrientId[]][] = []
+export function analyseParts(text: string): [string, GroupId, NutrientId[], number][] {
+  const original = (text || '').toLowerCase()
+  let t = original
+  const out: [number, string, GroupId, NutrientId[], number][] = []
   for (const k of FOOD_KEYS) {
     const at = t.indexOf(k)
     if (at >= 0) {
-      out.push([at, k, ...FOODS[k]])
+      out.push([at, k, ...FOODS[k], servingsOf(k, quantityBefore(original, at))])
       t = t.split(k).join(' '.repeat(k.length))
     }
   }
-  return out.sort((a, b) => a[0] - b[0]).map(([, k, g, ns]) => [k, g, ns])
+  return out.sort((a, b) => a[0] - b[0]).map(([, k, g, ns, q]) => [k, g, ns, q])
 }
+
+const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, half: 0.5, 'a half': 0.5, 'a couple of': 2, 'a few': 3 }
+
+/** The number written just before a food, e.g. 2 in "2 boiled eggs" or "two slices of toast". 1 if none. */
+export function quantityBefore(text: string, at: number): number {
+  // Up to two words may sit between the number and the food ("2 boiled eggs", "3 slices of toast").
+  const before = text.slice(0, at)
+  const m = before.match(/(?:^|[\s,(])(\d+(?:[.,]\d+)?|½|a couple of|a few|a half|half|an?|one|two|three|four|five|six)\s+((?:[a-z-]+\s+){0,2})$/)
+  if (!m) return 1
+  // "a few bites of pasta" or "3 spoons of yogurt" is a small taste, not several portions.
+  if (/\b(bite|spoon|taste|sip|lick|nibble|piece of)/.test(m[2])) return 1
+  const w = m[1]
+  const n = w === '½' ? 0.5 : /\d/.test(w) ? parseFloat(w.replace(',', '.')) : (NUMBER_WORDS[w] ?? 1)
+  return n > 0 && n <= 20 ? n : 1
+}
+
+/** Small foods: how many pieces make one child serving (2 crackers is not 2 servings). */
+const PER_SERVING: Record<string, number> = { cracker: 4, berr: 10, nut: 8, almond: 8, seed: 20, pancake: 2, cheese: 2 }
+
+/** Servings for a number of pieces of a food, capped so a typo can't run away. */
+export const servingsOf = (food: string, count: number) => Math.min(4, count / (PER_SERVING[food] ?? 1))
 
 export const NUTRIENTS: Record<NutrientId, { name: string; why: string; foods: string; note?: string }> = {
   iron: {
