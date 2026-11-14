@@ -294,3 +294,7 @@ input[type=text],input[type=number],input[type=url],input[type=password]{height:
 .nut-pop li{display:flex;gap:6px;align-items:baseline}
 .nut-pop li em{font-style:normal;color:var(--muted)}
 .nut-pop p{margin:4px 0 0;color:var(--muted)}
+/* Food icons in one continuous row (this week's days and the nutrient panel) */
+.ate-day>.emoji-row,.nut-pop .emoji-row{display:flex;flex-wrap:wrap;gap:2px 4px;font-size:22px;line-height:1.25;background:none;padding:0}
+.nut-pop .emoji-row{margin-top:4px}
+.emoji-row .refused{opacity:.35;filter:grayscale(1)}

@@ -167,11 +167,11 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
                 .map(({ d, i }) => (
                   <div className="ate-day" key={d.date}>
                     <small>{dayName(i)}</small>
-                    <div>
+                    <div className="emoji-row">
                       {d.foods.map((f, j) => {
                         const name = `${f.text || f.when}${f.amount ? `, ${AMOUNT_SHORT[f.amount] ?? f.amount} eaten` : ''}`
                         return (
-                          <span className={`ate-food${f.amount === 'None' ? ' refused' : ''}`} key={j} role="img" aria-label={name} title={name}>
+                          <span className={f.amount === 'None' ? 'refused' : undefined} key={j} role="img" aria-label={name} title={name}>
                             {f.emoji || localEmoji(f.text) || '🍽️'}
                           </span>
                         )
@@ -295,15 +295,16 @@ function NutrientPop({ name, day, foods, kid, onClose }: { name: string; day: st
         </button>
       </div>
       {foods.length ? (
-        <ul>
-          {foods.map((f, i) => (
-            <li key={i}>
-              <span aria-hidden="true">{f.emoji || localEmoji(f.text) || '🍽️'}</span>
-              {f.text}
-              {f.amount && <em> · {AMOUNT_SHORT[f.amount] ?? f.amount} eaten</em>}
-            </li>
-          ))}
-        </ul>
+        <div className="emoji-row">
+          {foods.map((f, i) => {
+            const label = `${f.text}${f.amount ? `, ${AMOUNT_SHORT[f.amount] ?? f.amount} eaten` : ''}`
+            return (
+              <span key={i} role="img" aria-label={label} title={label}>
+                {f.emoji || localEmoji(f.text) || '🍽️'}
+              </span>
+            )
+          })}
+        </div>
       ) : (
         <p>No food with {name.toLowerCase()} logged for {kid} this day.</p>
       )}
