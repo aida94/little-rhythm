@@ -49,7 +49,7 @@ export function AiSettingsField() {
   const host = saved?.baseUrl ? safeHost(saved.baseUrl) : ''
 
   return (
-    <Field label="AI assistant">
+    <Field label="AI assistant" className="section">
       <div className="store">
         {hasKey && !editing ? (
           <>

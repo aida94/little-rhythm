@@ -60,7 +60,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .timeline{background:var(--surface);border-radius:20px;padding:4px 14px}
 .item{display:grid;grid-template-columns:48px 30px minmax(0,1fr) auto;gap:8px;align-items:start;padding:11px 0;border-bottom:1px solid var(--line)}
 .item:last-child{border-bottom:0}
-.item.tap{cursor:pointer;border-radius:10px;margin:0 -6px;padding-left:6px;padding-right:6px;-webkit-tap-highlight-color:transparent}.item.tap:hover,.item.tap:active{background:var(--surface-2)}.item.tap:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.item.tap{cursor:pointer;padding-left:6px;padding-right:6px;-webkit-tap-highlight-color:transparent}.item.tap:hover,.item.tap:active{background:var(--surface-2)}.item.tap:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
 .item time{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);padding-top:4px}
 .ic{width:30px;height:30px;border-radius:10px;display:grid;place-items:center}
 .ic svg{width:17px;height:17px}
@@ -69,8 +69,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .item .what{font-weight:600;font-size:14px}
 .item .det{color:var(--muted);font-size:13px}
 .item .nt{font-size:13px;margin-top:3px;padding:6px 8px;background:var(--surface-2);border-radius:8px}
-.del{border:0;background:none;color:var(--muted);font-size:12px;padding:4px 2px}
-.del.arm{color:var(--warn);font-weight:700}
 .empty{color:var(--muted);text-align:center;padding:22px 0;font-size:14px}
 
 .tabbar{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding:8px 8px max(10px,env(safe-area-inset-bottom))}
@@ -208,3 +206,19 @@ textarea{min-height:64px;resize:vertical}
 .bubble.ai{background:var(--surface-2);border-bottom-left-radius:4px}
 .ok-msg{font-size:12.5px;color:var(--diaper)}
 button:disabled{opacity:.55;cursor:default}
+
+/* Settings: clear space between the big sections */
+.sheet .field.section{margin-top:10px;padding-top:18px;border-top:1px solid var(--line);gap:10px}
+
+/* Time and date inputs: same width, height and text position as the other fields (iOS draws them wider) */
+input[type=time],input[type=date]{display:block;width:100%;min-width:0;max-width:100%;height:42px;line-height:20px;margin:0}
+input[type=time]::-webkit-date-and-time-value,input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:20px}
+
+/* Swipe left on a Today entry to delete it */
+.swipe{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.swipe:last-child{border-bottom:0}
+.swipe .item{border-bottom:0}
+.swipe-fg{position:relative;background:var(--surface);touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.swipe-del{position:absolute;top:0;right:0;bottom:0;width:96px;border:0;background:var(--warn);color:#fff;font-weight:700;font-size:14px}
+.swipe-del:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
+input[type=text],input[type=number],input[type=url],input[type=password]{height:42px}

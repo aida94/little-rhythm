@@ -179,7 +179,7 @@ export function SettingsSheet({ kids, entries, onClose, onDone }: Omit<SheetProp
         Save kids
       </button>
       <AiSettingsField />
-      <Field label="Your data">
+      <Field label="Your data" className="section">
         <div className="store">
           <b>
             {n} {n === 1 ? 'entry' : 'entries'}
@@ -197,7 +197,7 @@ export function SettingsSheet({ kids, entries, onClose, onDone }: Omit<SheetProp
         </div>
         <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => restore(e.target.files?.[0])} />
       </Field>
-      <Field label="Try it out">
+      <Field label="Try it out" className="section">
         <div className="btn-row">
           {samples ? (
             <button className="btn2" onClick={() => db.entries.bulkDelete(entries.filter((e) => e.sample).map((e) => e.id)).then(() => onDone('Sample data removed'))}>

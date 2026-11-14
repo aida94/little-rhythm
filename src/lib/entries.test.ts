@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planSleep } from './entries'
+import { feedEnd, planSleep } from './entries'
 import { at } from './time'
 import type { Entry } from './types'
 
@@ -48,5 +48,14 @@ describe('planSleep when editing', () => {
 
   it('refuses a wake time in the future', () => {
     expect(planSleep('13:00', '16:00', [], at(0, 15), at(0, 13))).toHaveProperty('error')
+  })
+})
+
+describe('feedEnd', () => {
+  it('adds how long the feed lasted', () => {
+    const breast: Entry = { id: 'f', kid: 'a', type: 'feed', start: at(0, 23), details: { method: 'Breast', minutes: 10 } }
+    expect(feedEnd(breast)).toBe(at(0, 23, 10))
+    const meal: Entry = { id: 'm', kid: 'a', type: 'feed', start: at(0, 12), details: { method: 'Meal' } }
+    expect(feedEnd(meal)).toBe(at(0, 12))
   })
 })

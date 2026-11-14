@@ -159,3 +159,6 @@ export function planSleep(
   if (clash) return { error: `This overlaps the sleep ${hm(clash.start)}–${clash.end ? hm(clash.end) : 'now'}. Check the times.` }
   return { start, end }
 }
+
+/** When a feed finished: start plus how long it lasted. */
+export const feedEnd = (e: Entry) => e.start + feedMinutes(e) * MIN

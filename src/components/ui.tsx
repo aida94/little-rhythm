@@ -19,9 +19,9 @@ export function ChipRow({ options, value, onChange }: { options: ChipOption[]; v
   )
 }
 
-export function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+export function Field({ label, htmlFor, className, children }: { label: string; htmlFor?: string; className?: string; children: ReactNode }) {
   return (
-    <div className="field">
+    <div className={className ? `field ${className}` : 'field'}>
       {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}
       {children}
     </div>

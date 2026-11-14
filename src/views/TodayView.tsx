@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { TodayStrip } from '../components/Charts'
 import { Icon } from '../components/Icons'
-import { describeEntry, lastFinishedSleep, lastOf, runningSleep } from '../lib/entries'
+import { SwipeToDelete } from '../components/SwipeToDelete'
+import { describeEntry, feedEnd, lastFinishedSleep, lastOf, runningSleep } from '../lib/entries'
 import { isPotty } from '../lib/kids'
 import { dayStart, dur, hm } from '../lib/time'
 import type { Entry, KidInfo } from '../lib/types'
@@ -19,7 +19,6 @@ interface Props {
 }
 
 export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit }: Props) {
-  const [armed, setArmed] = useState<string | null>(null)
   const running = runningSleep(mine)
   const lastSleep = lastFinishedSleep(mine)
   const lastFeed = lastOf(mine, 'feed')
@@ -49,7 +48,7 @@ export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit }
         <div className="since">
           <div>
             <small>Last feed</small>
-            <b>{lastFeed ? dur(now - lastFeed.start) : '—'}</b>
+            <b>{!lastFeed ? '—' : now < feedEnd(lastFeed) ? 'now' : dur(now - feedEnd(lastFeed))}</b>
           </div>
           <div>
             <small>Last {potty ? 'potty' : 'diaper'}</small>
@@ -88,34 +87,15 @@ export function TodayView({ kid, mine, now, onAction, onWeek, onDelete, onEdit }
       <div className="timeline">
         {items.length ? (
           items.map((e) => (
-            <EntryRow
-              key={e.id}
-              e={e}
-              now={now}
-              time={hm(e.start)}
-              onOpen={() => onEdit(e.id)}
-              action={
-                <button
-                  className={`del ${armed === e.id ? 'arm' : ''}`}
-                  aria-label="Delete entry"
-                  onClick={(ev) => {
-                    ev.stopPropagation()
-                    if (armed === e.id) {
-                      onDelete(e.id)
-                      setArmed(null)
-                    } else setArmed(e.id)
-                  }}
-                >
-                  {armed === e.id ? 'Delete?' : '✕'}
-                </button>
-              }
-            />
+            <SwipeToDelete key={e.id} onDelete={() => onDelete(e.id)}>
+              <EntryRow e={e} now={now} time={hm(e.start)} onOpen={() => onEdit(e.id)} />
+            </SwipeToDelete>
           ))
         ) : (
           <div className="empty">Nothing logged yet today. Tap a button above.</div>
         )}
       </div>
-      {items.length > 0 && <div className="disclaim">Tap an entry to change its time or details.</div>}
+      {items.length > 0 && <div className="disclaim">Tap an entry to change it. Swipe left to delete.</div>}
     </>
   )
 }

@@ -267,7 +267,7 @@ export function DiaperSheet({ kid, onClose, onDone, entry }: SheetProps & { entr
   }
   const save = async () => {
     const details: Details = { kind }
-    if (poop) Object.assign(details, { color, texture })
+    if (poop && !potty) Object.assign(details, { color, texture })
     if (potty) {
       details.where = where
       if (where === 'Accident') details.accident = true
@@ -290,7 +290,7 @@ export function DiaperSheet({ kid, onClose, onDone, entry }: SheetProps & { entr
           />
         </Field>
       )}
-      {poop && (
+      {poop && !potty && (
         <>
           <Field label="Color">
             <ChipRow options={COLORS} value={color} onChange={setColor} />
