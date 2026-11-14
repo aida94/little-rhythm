@@ -8,6 +8,7 @@ import { db, getSetting, removeKid, saveMenu } from '../lib/db'
 import { describeEntry } from '../lib/entries'
 import { AiError, getAiSettings } from '../lib/ai'
 import { parseSayAi } from '../lib/aiSay'
+import { improveEmojiLater, localEmoji } from '../lib/foodEmoji'
 import { DAYS, NUTRIENTS, keyNutrients } from '../lib/food'
 import { draftProblem, draftToKid, newKidDraft, type KidDraft } from '../lib/kids'
 import { parseSay, type ParsedEntry } from '../lib/say'
@@ -97,7 +98,18 @@ export function SaySheet({ kid, kids, onClose, onDone }: SheetProps & { kids: Ki
   const save = async () => {
     if (needsReading) return read()
     if (!parsed.length) return ref.current?.focus()
-    await db.entries.bulkAdd(parsed.map(({ said: _said, ...e }) => ({ ...e, id: uid() })))
+    const later: string[] = []
+    const rows = parsed.map(({ said: _said, ...e }) => {
+      const row = { ...e, id: uid(), details: { ...e.details } }
+      if (row.type === 'feed' && row.details.food && !row.details.emoji) {
+        const emoji = localEmoji(row.details.food)
+        if (emoji) row.details.emoji = emoji
+        later.push(row.id) // the AI may find better emoji afterwards
+      }
+      return row
+    })
+    await db.entries.bulkAdd(rows)
+    later.forEach((id) => void improveEmojiLater(id))
     onDone(parsed.length === 1 ? 'Added to the log' : `Added ${parsed.length} entries`)
   }
   const source = aiFresh ? 'Read by AI' : useRules && parsed.length ? 'Read by simple rules' : ''

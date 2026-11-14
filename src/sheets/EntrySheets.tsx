@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChipRow, Field, Sheet } from '../components/ui'
 import { db } from '../lib/db'
 import { MEAL_TIMES, isPoop, planSleep, splitFood } from '../lib/entries'
+import { improveEmojiLater, localEmoji } from '../lib/foodEmoji'
 import { isPotty } from '../lib/kids'
 import { H, MIN, dur, hm, tsFromTime, tsOnDay, uid } from '../lib/time'
 import type { Details, Entry, KidInfo, Stage } from '../lib/types'
@@ -180,12 +181,19 @@ export function FeedSheet({ kid, onClose, onDone, initial, entry }: SheetProps &
   const [amount, setAmount] = useState(d?.amount ?? 'Most')
   const [time, setTime] = useState(() => (entry ? hm(entry.start) : nowHm()))
   const [note, setNote] = useState(entry?.note ?? '')
+  const isFood = method !== 'Bottle' && method !== 'Breast'
+  // Keep the emoji of an edited entry while its food text is unchanged; otherwise use the built-in list.
+  const keptEmoji = isFood && entry?.details.emoji && splitFood(entry.details.food).what.trim() === food.trim() ? entry.details.emoji : ''
+  const emoji = isFood ? keptEmoji || localEmoji(food) : ''
   const save = async () => {
     const details: Details = { method }
     if (method === 'Bottle') Object.assign(details, { ml: +ml || null, minutes: +minutes || null })
     else if (method === 'Breast') Object.assign(details, { side, minutes: +minutes || null })
     else Object.assign(details, { food: mealTime ? `${mealTime}: ${food.trim()}`.trim().replace(/:$/, '') : food.trim(), amount })
-    await store(entry, { kid: kid.id, type: 'feed', start: when(time, entry), details, note: note.trim() || undefined })
+    if (emoji) details.emoji = emoji
+    const id = await store(entry, { kid: kid.id, type: 'feed', start: when(time, entry), details, note: note.trim() || undefined })
+    // New or changed food: the AI picks better emoji in the background (if connected).
+    if (details.food && !keptEmoji) void improveEmojiLater(String(id))
     onDone(entry ? 'Feed updated' : 'Feed saved')
   }
   const minutesField = (ph: string) => (
@@ -226,7 +234,14 @@ export function FeedSheet({ kid, onClose, onDone, initial, entry }: SheetProps &
             <ChipRow options={MEAL_TIMES} value={mealTime} onChange={(v) => setMealTime(v === mealTime ? '' : v)} />
           </Field>
           <Field label={`What did ${kid.name} eat?`} htmlFor="f-food">
-            <input type="text" id="f-food" value={food} placeholder={baby ? 'Mashed banana' : 'Pasta with peas'} onChange={(e) => setFood(e.target.value)} />
+            <div className="food-input">
+              <input type="text" id="f-food" value={food} placeholder={baby ? 'Mashed banana' : 'Pasta with peas'} onChange={(e) => setFood(e.target.value)} />
+              {emoji && (
+                <span className="food-emoji" aria-hidden="true">
+                  {emoji}
+                </span>
+              )}
+            </div>
           </Field>
           <Field label="How much">
             <ChipRow options={['None', 'A little', 'Half', 'Most', 'All']} value={amount} onChange={setAmount} />

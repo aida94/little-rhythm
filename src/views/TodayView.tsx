@@ -1,6 +1,7 @@
 import { TodayStrip } from '../components/Charts'
 import { Icon } from '../components/Icons'
 import { SwipeToDelete } from '../components/SwipeToDelete'
+import { firstEmoji } from '../lib/foodEmoji'
 import { describeEntry, feedEnd, lastFinishedSleep, lastOf, runningSleep } from '../lib/entries'
 import { isPotty } from '../lib/kids'
 import { dayStart, dur, hm } from '../lib/time'
@@ -118,6 +119,7 @@ export function EntryRow({
 }) {
   const d = describeEntry(e, now)
   const detail = det ?? d.det
+  const emoji = e.type === 'feed' ? firstEmoji(e.details?.emoji) : ''
   const open = onOpen
     ? {
         role: 'button',
@@ -135,8 +137,8 @@ export function EntryRow({
   return (
     <div className={`item${onOpen ? ' tap' : ''}`} {...open}>
       <time>{time}</time>
-      <span className={`ic ${e.type}`}>
-        <Icon name={e.type} />
+      <span className={`ic ${e.type}${emoji ? ' emoji' : ''}`} title={e.details?.emoji}>
+        {emoji || <Icon name={e.type} />}
       </span>
       <div>
         <div className="what">{d.what}</div>

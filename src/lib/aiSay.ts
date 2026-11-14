@@ -1,5 +1,6 @@
 import { AiError, chat } from './ai'
 import { MEAL_TIMES } from './entries'
+import { cleanEmoji } from './foodEmoji'
 import { isPotty } from './kids'
 import type { ParsedEntry } from './say'
 import { MIN, pad2, uid } from './time'
@@ -59,13 +60,13 @@ Rules:
 - Times are local, written "YYYY-MM-DD HH:MM". Work them out from "now". Words like "this morning", "yesterday", "last night", "at 2", "2ish", "after lunch" are fine: pick the most likely time that is not in the future.
 - If only a length is given ("slept 2 hours") and no time, assume it just ended now.
 - sleep: give start, and end if the child woke up. Leave end null only if the child is still asleep. sleepKind is "Night" for night sleep or bedtime, otherwise "Nap".
-- feed: method is "Breast", "Bottle", "Solids" (baby food, under 12 months) or "Food" (meals and snacks, 12 months and older). Fill ml and minutes when said. side is "Left", "Right" or "Both" for breastfeeding. food is what was eaten, short, in the parent's words. mealTime is "Breakfast", "Lunch", "Snack", "Dinner" or null. amount is "None", "A little", "Half", "Most" or "All" (default "Most").
+- feed: method is "Breast", "Bottle", "Solids" (baby food, under 12 months) or "Food" (meals and snacks, 12 months and older). Fill ml and minutes when said. side is "Left", "Right" or "Both" for breastfeeding. food is what was eaten, short, in the parent's words. mealTime is "Breakfast", "Lunch", "Snack", "Dinner" or null. amount is "None", "A little", "Half", "Most" or "All" (default "Most"). emoji is 1 to 3 food or drink emoji for what was eaten, main food first.
 - diaper: for wees, poos, diapers and potty. Set pee and poop. accident is true for a potty accident. For poo in a diaper you may add color (Yellow, Brown, Green, Black, Red, White) and texture (Runny, Soft, Firm, Hard) when said.
 - note: anything else worth keeping (mood, health, teething, medicine, milestones). Put the text in note.
 - said: the part of the message this entry came from.
 Reply in json only.`
 
-const EXAMPLE = `{"entries":[{"child":"Child A","type":"sleep","start":"2026-01-05 13:00","end":"2026-01-05 14:30","sleepKind":"Nap","said":"napped 1 to 2:30"},{"child":"Child B","type":"feed","start":"2026-01-05 12:15","method":"Food","food":"pasta with peas","mealTime":"Lunch","amount":"Half","said":"ate half her pasta for lunch"},{"child":"Child A","type":"diaper","start":"2026-01-05 10:00","pee":false,"poop":true,"said":"pooped at 10"},{"child":"Child B","type":"note","start":"2026-01-05 15:00","note":"Teething, a bit grumpy","said":"teething and grumpy"}]}`
+const EXAMPLE = `{"entries":[{"child":"Child A","type":"sleep","start":"2026-01-05 13:00","end":"2026-01-05 14:30","sleepKind":"Nap","said":"napped 1 to 2:30"},{"child":"Child B","type":"feed","start":"2026-01-05 12:15","method":"Food","food":"pasta with peas","mealTime":"Lunch","amount":"Half","emoji":"🍝🫛","said":"ate half her pasta for lunch"},{"child":"Child A","type":"diaper","start":"2026-01-05 10:00","pee":false,"poop":true,"said":"pooped at 10"},{"child":"Child B","type":"note","start":"2026-01-05 15:00","note":"Teething, a bit grumpy","said":"teething and grumpy"}]}`
 
 function kidLine(k: KidInfo, i: number, current: KidInfo) {
   const g = k.gender === 'girl' ? 'girl' : k.gender === 'boy' ? 'boy' : 'child'
@@ -120,6 +121,8 @@ export function readAiEntries(raw: string, kids: KidInfo[], current: KidInfo, no
           food: (meal ? `${meal}${food ? ': ' + food : ''}` : food) || null,
           amount: pick(it.amount, ['None', 'A little', 'Half', 'Most', 'All'] as const, 'Most'),
         })
+        const emoji = cleanEmoji(it.emoji)
+        if (emoji && food) d.emoji = emoji
       }
       e.details = d
     } else if (type === 'diaper') {

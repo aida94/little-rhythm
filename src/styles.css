@@ -223,3 +223,8 @@ input[type=time]::-webkit-date-and-time-value,input[type=date]::-webkit-date-and
 .swipe-del:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
 input[type=text],input[type=number],input[type=url],input[type=password]{height:42px}
 .prev-x{border:0;background:none;color:var(--muted);font-size:13px;padding:4px 6px}
+/* Food emoji: big icon in the list, live preview in the food form */
+.ic.emoji{font-size:18px;line-height:1}
+.food-input{position:relative}
+.food-input input{padding-right:84px}
+.food-input .food-emoji{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:18px;letter-spacing:2px;pointer-events:none}

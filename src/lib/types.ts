@@ -15,6 +15,7 @@ export interface Details {
   texture?: string
   where?: string // potty: In potty | Accident | In diaper
   accident?: boolean
+  emoji?: string // food: up to 3 emoji, e.g. "🍝🥦"
 }
 
 export interface Entry {

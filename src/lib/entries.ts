@@ -31,7 +31,9 @@ export function describeEntry(e: Entry, now = Date.now()): { what: string; det: 
     if (d.method === 'Bottle') return { what: 'Bottle', det: [`${d.ml || '?'} ml`, d.minutes ? `${d.minutes} min` : ''].filter(Boolean).join(' · ') }
     if (d.method === 'Breast') return { what: 'Breastfeed', det: [d.side, d.minutes ? `${d.minutes} min` : ''].filter(Boolean).join(' · ') }
     const f = splitFood(d.food)
-    return { what: f.when || (d.method === 'Meal' ? 'Food' : 'Solids'), det: [f.what, d.amount && `${d.amount} eaten`].filter(Boolean).join(' · ') }
+    // The first emoji is the row's icon; with several foods, all of them follow the text.
+    const many = d.emoji && [...new Intl.Segmenter().segment(d.emoji)].length > 1 ? ` ${d.emoji}` : ''
+    return { what: f.when || (d.method === 'Meal' ? 'Food' : 'Solids'), det: [f.what && f.what + many, d.amount && `${d.amount} eaten`].filter(Boolean).join(' · ') }
   }
   if (e.type === 'diaper') {
     const potty = ['Pee', 'Poop'].includes(d.kind ?? '') || !!d.where

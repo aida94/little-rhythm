@@ -39,6 +39,7 @@ The Insights tab can ask an AI for a weekly summary and answer questions about a
 - The settings are saved only in this browser (IndexedDB). They are not in the code and not in backups, so add them again on each device.
 - When you use AI, the app sends a summary of the last 14 days of that child's logs to the AI service: times, foods, amounts, notes, age in months and gender. **Names are removed** first and replaced with "the child" or "a sibling".
 - Nothing is sent until you tap **Create insights**, **Ask** or **Read with AI**.
+- **Food emoji**: food entries get emoji (🍝🥦) from a built-in word list straight away. With AI connected, the AI picks better ones after saving; only the food text is sent, and each answer is remembered so a food is asked once.
 - All AI calls are in `src/lib/ai.ts`. To move the key to a small server later, change that file.
 
 ## Run it on your computer
