@@ -298,3 +298,6 @@ input[type=text],input[type=number],input[type=url],input[type=password]{height:
 .ate-day>.emoji-row,.nut-pop .emoji-row{display:flex;flex-wrap:wrap;gap:2px 4px;font-size:22px;line-height:1.25;background:none;padding:0}
 .nut-pop .emoji-row{margin-top:4px}
 .emoji-row .refused{opacity:.35;filter:grayscale(1)}
+/* Most important: foods as small chips with an icon */
+.kn-foods{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.kn-food{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border-radius:99px;padding:3px 9px 3px 6px;font-size:12.5px}

@@ -1,9 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { AiError, getAiSettings } from '../lib/ai'
-import { DAYS, GROUPS, NUTRIENTS, keyNutrients, slotsFor, type GroupId, type NutrientId } from '../lib/food'
+import { DAYS, GROUPS, NUTRIENTS, keyNutrients, nutrientFoods, slotsFor, type GroupId, type NutrientId } from '../lib/food'
 import { analyseFoodsAi, foodKey, getFactsCache, getMenuNote, localFacts, mergeFacts, planMenu, saveAiMenu, weekIntake } from '../lib/foodAi'
-import { localEmoji } from '../lib/foodEmoji'
+import { firstEmoji, localEmoji } from '../lib/foodEmoji'
 import { todayIdx } from '../lib/time'
 import type { Entry, KidInfo, Menu } from '../lib/types'
 
@@ -207,7 +207,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
                     <span>{r.c} of 7 days</span>
                   </div>
                   {picked?.n === r.n && <NutrientPop name={NUTRIENTS[r.n].name} day={dayName(picked.i)} foods={days[picked.i].sources[r.n] ?? []} kid={kid.name} onClose={() => setPicked(null)} />}
-                  {r.c < 5 && <div className="try">Try: {NUTRIENTS[r.n].foods}</div>}
+                  {r.c < 5 && <div className="try">Try: {nutrientFoods(r.n, 5).join(', ')}</div>}
                 </div>
               )
             })}
@@ -266,7 +266,15 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
           <div className="kn" key={n}>
             <b>{NUTRIENTS[n].name}</b>
             <p>{NUTRIENTS[n].why}</p>
-            <p className="src">{NUTRIENTS[n].foods}</p>
+            <div className="kn-foods">
+              {nutrientFoods(n).map((f) => (
+                <span className="kn-food" key={f}>
+                  <span aria-hidden="true">{firstEmoji(localEmoji(f)) || '🍽️'}</span>
+                  {f}
+                </span>
+              ))}
+            </div>
+            {NUTRIENTS[n].note && <p className="src">{NUTRIENTS[n].note}</p>}
           </div>
         ))}
         <div className="safe">

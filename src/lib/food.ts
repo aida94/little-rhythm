@@ -68,15 +68,54 @@ export function analyseParts(text: string): [string, GroupId, NutrientId[]][] {
   return out.sort((a, b) => a[0] - b[0]).map(([, k, g, ns]) => [k, g, ns])
 }
 
-export const NUTRIENTS: Record<NutrientId, { name: string; why: string; foods: string }> = {
-  iron: { name: 'Iron', why: 'Builds blood and supports brain growth.', foods: 'beef, lentils, beans, iron-fortified cereal, eggs, tofu' },
-  zinc: { name: 'Zinc', why: 'Supports growth and the immune system.', foods: 'beef, chicken, lentils, oats, eggs' },
-  fats: { name: 'Healthy fats', why: 'Fuel for the fast-growing brain.', foods: 'avocado, salmon, eggs, full-fat yogurt' },
-  vitac: { name: 'Vitamins A and C', why: 'Eyes, skin, immunity, and C helps the body absorb iron.', foods: 'sweet potato, carrot, broccoli, berries, mango' },
-  calcium: { name: 'Calcium', why: 'Strong bones and teeth.', foods: 'milk, yogurt, cheese, tofu, broccoli' },
-  vitd: { name: 'Vitamin D', why: 'Helps the body use calcium.', foods: 'salmon, eggs, fortified milk. Ask your doctor about drops.' },
-  fiber: { name: 'Fiber', why: 'Keeps digestion regular.', foods: 'oats, beans, pears, berries, whole-grain bread' },
-  protein: { name: 'Protein', why: 'Muscles and growth.', foods: 'eggs, chicken, fish, beans, yogurt' },
+export const NUTRIENTS: Record<NutrientId, { name: string; why: string; foods: string; note?: string }> = {
+  iron: {
+    name: 'Iron',
+    why: 'Builds blood and supports brain growth.',
+    foods: 'beef, lentils, beans, iron-fortified cereal, eggs, tofu, chickpeas, chicken, spinach, oats, salmon, peas, hummus, dried apricots',
+  },
+  zinc: {
+    name: 'Zinc',
+    why: 'Supports growth and the immune system.',
+    foods: 'beef, chicken, lentils, oats, eggs, turkey, chickpeas, yogurt, cheese, beans, pumpkin seeds',
+  },
+  fats: {
+    name: 'Healthy fats',
+    why: 'Fuel for the fast-growing brain.',
+    foods: 'avocado, salmon, eggs, full-fat yogurt, cheese, nut butter, olive oil, sardines, chia seeds, butter',
+  },
+  vitac: {
+    name: 'Vitamins A and C',
+    why: 'Eyes, skin, immunity, and C helps the body absorb iron.',
+    foods: 'sweet potato, carrot, broccoli, berries, mango, orange, kiwi, pepper, tomato, spinach, pumpkin, melon, strawberries',
+  },
+  calcium: {
+    name: 'Calcium',
+    why: 'Strong bones and teeth.',
+    foods: 'milk, yogurt, cheese, tofu, broccoli, almonds, kale, chia seeds, sardines, white beans, fortified oat drink',
+  },
+  vitd: {
+    name: 'Vitamin D',
+    why: 'Helps the body use calcium.',
+    foods: 'salmon, eggs, fortified milk, sardines, tuna, mushrooms, fortified cereal, fortified yogurt',
+    note: 'Few foods have enough. Ask your doctor about vitamin D drops.',
+  },
+  fiber: {
+    name: 'Fiber',
+    why: 'Keeps digestion regular.',
+    foods: 'oats, beans, pears, berries, whole-grain bread, lentils, apples, peas, broccoli, sweet potato, brown rice, prunes',
+  },
+  protein: {
+    name: 'Protein',
+    why: 'Muscles and growth.',
+    foods: 'eggs, chicken, fish, beans, yogurt, beef, lentils, tofu, cheese, turkey, milk, peanut butter',
+  },
+}
+
+/** A nutrient's foods as a list. `top` keeps only the first few (for short tips). */
+export const nutrientFoods = (n: NutrientId, top?: number) => {
+  const all = NUTRIENTS[n].foods.split(', ')
+  return top ? all.slice(0, top) : all
 }
 
 export const keyNutrients = (k: KidInfo): NutrientId[] =>

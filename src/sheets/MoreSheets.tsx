@@ -9,7 +9,7 @@ import { describeEntry } from '../lib/entries'
 import { AiError, getAiSettings } from '../lib/ai'
 import { parseSayAi } from '../lib/aiSay'
 import { addParsed } from '../lib/sayStore'
-import { DAYS, NUTRIENTS, keyNutrients } from '../lib/food'
+import { DAYS, keyNutrients, nutrientFoods } from '../lib/food'
 import { draftProblem, draftToKid, newKidDraft, type KidDraft } from '../lib/kids'
 import { parseSay, type ParsedEntry } from '../lib/say'
 import { sampleEntries } from '../lib/seed'
@@ -21,7 +21,7 @@ import type { SheetProps } from './EntrySheets'
 export function MenuSheet({ kid, onClose, onDone, menu, day, slot }: SheetProps & { menu: Menu; day: number; slot: string }) {
   const [food, setFood] = useState(menu[kid.id]?.[day]?.[slot] ?? '')
   const ideas = keyNutrients(kid)
-    .map((n) => NUTRIENTS[n].foods.split(', ')[0])
+    .map((n) => nutrientFoods(n)[0])
     .filter((f) => !f.includes('.'))
   const save = async () => {
     const next: Menu = structuredClone(menu)
