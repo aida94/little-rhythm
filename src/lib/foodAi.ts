@@ -46,6 +46,8 @@ export interface DayIntake {
   foods: { text: string; emoji?: string; amount?: string; when: string }[]
   groups: Record<GroupId, number>
   nutrients: Set<NutrientId>
+  /** Which foods gave each nutrient that day (only foods that were at least partly eaten). */
+  sources: Partial<Record<NutrientId, { text: string; emoji?: string; amount?: string }[]>>
 }
 
 /** The last 7 days (oldest first): foods eaten, servings per group and nutrients, weighted by amount. */
@@ -53,14 +55,19 @@ export function weekIntake(mine: Entry[], facts: (food: string) => FoodFacts): D
   const days: DayIntake[] = []
   for (let o = -6; o <= 0; o++) {
     const a = dayStart(o)
-    const day: DayIntake = { date: a, foods: [], groups: Object.fromEntries(GROUP_IDS.map((g) => [g, 0])) as Record<GroupId, number>, nutrients: new Set() }
+    const day: DayIntake = { date: a, foods: [], groups: Object.fromEntries(GROUP_IDS.map((g) => [g, 0])) as Record<GroupId, number>, nutrients: new Set(), sources: {} }
+    const credit = (n: NutrientId, src: { text: string; emoji?: string; amount?: string }) => {
+      day.nutrients.add(n)
+      ;(day.sources[n] ??= []).push(src)
+    }
     for (const e of mine.filter((x) => x.type === 'feed' && x.start >= a && x.start < a + D).sort((x, y) => x.start - y.start)) {
       const d = e.details
       if (d.method === 'Bottle' && d.ml) {
         // A bottle of milk: about 240 ml is one dairy serving.
         day.groups.dairy += d.ml / 240
-        day.nutrients.add('calcium')
-        day.nutrients.add('vitd')
+        const milk = { text: `milk bottle, ${d.ml} ml`, emoji: '🍼' }
+        credit('calcium', milk)
+        credit('vitd', milk)
         continue
       }
       if (!d.food) continue
@@ -70,7 +77,7 @@ export function weekIntake(mine: Entry[], facts: (food: string) => FoodFacts): D
       if (!share) continue
       const f = facts(d.food)
       for (const g of GROUP_IDS) day.groups[g] += (f.groups[g] ?? 0) * share
-      f.nutrients.forEach((n) => day.nutrients.add(n))
+      f.nutrients.forEach((n) => credit(n, { text: what || when, emoji: d.emoji, amount: d.amount }))
     }
     days.push(day)
   }

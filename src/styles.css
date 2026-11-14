@@ -280,3 +280,17 @@ input[type=text],input[type=number],input[type=url],input[type=password]{height:
 .slot-main.past{background:var(--surface-2);border-color:transparent;color:var(--muted)}
 .slot-main.past b{color:var(--muted);font-weight:600}
 .days button.is-past:not([aria-pressed="true"]){opacity:.55}
+/* Nutrient squares: tappable (24px target, 16px square) with a small popup of foods */
+.dots{gap:2px}
+.dots .dot{width:24px;height:24px;border:0;padding:0;background:none;display:grid;place-items:center;border-radius:6px}
+.dots .dot::before{content:'';width:16px;height:16px;border-radius:4px;background:var(--track);transition:transform .15s}
+.dots .dot.on::before{background:var(--chart-food)}
+.dots .dot.open::before{outline:2px solid var(--brand-ink);outline-offset:1px;transform:scale(1.1)}
+.dots .dot:focus-visible{outline:2px solid var(--brand);outline-offset:0}
+.nut-pop{margin-top:6px;background:var(--surface-2);border-radius:12px;padding:8px 10px;font-size:13px;animation:fresh-in .2s ease-out}
+.nut-pop-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.nut-pop-h button{border:0;background:none;color:var(--muted);font-size:13px;padding:2px 4px}
+.nut-pop ul{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:4px}
+.nut-pop li{display:flex;gap:6px;align-items:baseline}
+.nut-pop li em{font-style:normal;color:var(--muted)}
+.nut-pop p{margin:4px 0 0;color:var(--muted)}

@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { AiError, getAiSettings } from '../lib/ai'
-import { DAYS, GROUPS, NUTRIENTS, keyNutrients, slotsFor, type GroupId } from '../lib/food'
+import { DAYS, GROUPS, NUTRIENTS, keyNutrients, slotsFor, type GroupId, type NutrientId } from '../lib/food'
 import { analyseFoodsAi, foodKey, getFactsCache, getMenuNote, localFacts, planMenu, saveAiMenu, weekIntake } from '../lib/foodAi'
 import { localEmoji } from '../lib/foodEmoji'
 import { todayIdx } from '../lib/time'
@@ -54,6 +54,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
   }, [aiOn, missingKey])
 
   const keys = keyNutrients(kid)
+  const [picked, setPicked] = useState<{ n: NutrientId; i: number } | null>(null)
   const rows = keys
     .map((n) => {
       const hit = days.map((d) => d.nutrients.has(n))
@@ -181,6 +182,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
             </div>
             {foods.some((f) => f.amount === 'None') && <div className="disclaim">Greyed out: not eaten.</div>}
             <div className="sub nut-sub">Key nutrients for {kid.age}</div>
+            <div className="disclaim">Each square is a day. Tap one to see which foods gave it.</div>
             {rows.map((r) => {
               const [cls, label] = r.c >= 5 ? ['good', 'Good'] : r.c >= 2 ? ['low', 'Low'] : ['miss', 'Missing']
               return (
@@ -189,12 +191,22 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
                     <b>{NUTRIENTS[r.n].name}</b>
                     <span className={`pill ${cls}`}>{label}</span>
                   </div>
-                  <div className="dots" aria-label={`${r.c} of 7 days`}>
-                    {r.hit.map((x, i) => (
-                      <i key={i} className={x ? 'on' : ''} title={dayName(i)} />
-                    ))}
+                  <div className="dots" role="group" aria-label={`${NUTRIENTS[r.n].name}: ${r.c} of 7 days. Tap a day to see the foods.`}>
+                    {r.hit.map((x, i) => {
+                      const open = picked?.n === r.n && picked.i === i
+                      return (
+                        <button
+                          key={i}
+                          className={`dot${x ? ' on' : ''}${open ? ' open' : ''}`}
+                          aria-label={`${dayName(i)}: ${x ? `${NUTRIENTS[r.n].name} from ${days[i].sources[r.n]?.length ?? 0} ${(days[i].sources[r.n]?.length ?? 0) === 1 ? 'food' : 'foods'}` : 'none'}`}
+                          aria-expanded={open}
+                          onClick={() => setPicked(open ? null : { n: r.n, i })}
+                        />
+                      )
+                    })}
                     <span>{r.c} of 7 days</span>
                   </div>
+                  {picked?.n === r.n && <NutrientPop name={NUTRIENTS[r.n].name} day={dayName(picked.i)} foods={days[picked.i].sources[r.n] ?? []} kid={kid.name} onClose={() => setPicked(null)} />}
                   {r.c < 5 && <div className="try">Try: {NUTRIENTS[r.n].foods}</div>}
                 </div>
               )
@@ -267,5 +279,34 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
         </div>
       </div>
     </>
+  )
+}
+
+/** What a tapped nutrient square means: the foods that gave it that day. */
+function NutrientPop({ name, day, foods, kid, onClose }: { name: string; day: string; foods: { text: string; emoji?: string; amount?: string }[]; kid: string; onClose: () => void }) {
+  return (
+    <div className="nut-pop" role="status">
+      <div className="nut-pop-h">
+        <b>
+          {day} · {name}
+        </b>
+        <button aria-label="Close" onClick={onClose}>
+          ✕
+        </button>
+      </div>
+      {foods.length ? (
+        <ul>
+          {foods.map((f, i) => (
+            <li key={i}>
+              <span aria-hidden="true">{f.emoji || localEmoji(f.text) || '🍽️'}</span>
+              {f.text}
+              {f.amount && <em> · {AMOUNT_SHORT[f.amount] ?? f.amount} eaten</em>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No food with {name.toLowerCase()} logged for {kid} this day.</p>
+      )}
+    </div>
   )
 }
