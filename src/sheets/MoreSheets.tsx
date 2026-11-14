@@ -77,13 +77,8 @@ export function SaySheet({ kid, kids, onClose, onDone }: SheetProps & { kids: Ki
   const parsed = all.filter((e) => !gone.includes(e.id))
   const needsReading = !!ai && !!clean && !aiFresh && !aiFailed
 
-  const [first, second] = kids
-  const examples = [
-    `Today ${first.name} slept 3 hours from 1.00`,
-    ...(second ? [`${second.name} had a 150 ml bottle at 7`] : []),
-    `${first.name} had a few bites of pasta for lunch, then napped around 2ish until 3`,
-    `${first.name} pooped at 10`,
-  ]
+  const other = kids.find((k) => k.id !== kid.id)
+  const placeholder = `${kid.name} had a few bites of pasta for lunch, then napped from 2 until 3.${other ? ` ${other.name} had a 150 ml bottle at 4.` : ''}`
   const read = async () => {
     setReading(true)
     try {
@@ -117,17 +112,12 @@ export function SaySheet({ kid, kids, onClose, onDone }: SheetProps & { kids: Ki
     <Sheet onClose={onClose}>
       <h2>Tell me what happened</h2>
       <Field label="Type or use the mic on your keyboard" htmlFor="f-say">
-        <textarea id="f-say" ref={ref} autoFocus value={text} placeholder={examples[0]} onChange={(e) => setText(e.target.value)} />
+        <textarea id="f-say" ref={ref} autoFocus value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} />
       </Field>
-      <Field label="Try">
-        <div className="chips">
-          {examples.map((x) => (
-            <button key={x} className="chip" onClick={() => setText(x)}>
-              {x}
-            </button>
-          ))}
-        </div>
-      </Field>
+      <div className="disclaim">
+        Say several things at once, in your own words: sleep, food, bottles, potty or diapers, and notes{other ? ', for any of your kids' : ''}. Times like
+        "at 2", "this morning" or "yesterday" work. You can check everything before it is added.
+      </div>
       <Field label={source ? `Will be added · ${source}` : 'Will be added'}>
         <div className="timeline say-prev">
           {parsed.length ? (
