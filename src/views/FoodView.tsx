@@ -25,6 +25,8 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
   const baby = kid.ageM < 12
   const plan = menu[kid.id]?.[day] ?? {}
   const isToday = day === todayIdx()
+  // Days earlier in this week (Mon … yesterday) are done: their meals can be seen but not changed.
+  const isPast = day < todayIdx()
   const aiOn = useLiveQuery(async () => !!(await getAiSettings())?.apiKey, []) ?? false
   const cache = useLiveQuery(getFactsCache, [])
   const note = useLiveQuery(() => getMenuNote(kid.id), [kid.id])
@@ -93,7 +95,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
         </div>
         <div className="days">
           {DAYS.map((d, i) => (
-            <button key={d} aria-pressed={i === day} className={i === todayIdx() ? 'is-today' : undefined} onClick={() => onDay(i)}>
+            <button key={d} aria-pressed={i === day} className={i === todayIdx() ? 'is-today' : i < todayIdx() ? 'is-past' : undefined} onClick={() => onDay(i)}>
               {d}
             </button>
           ))}
@@ -103,10 +105,17 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
             const v = plan[sl] || ''
             return (
               <div className="slot" key={sl}>
-                <button className="slot-main" onClick={() => onEditSlot(sl)}>
-                  <small>{sl}</small>
-                  <b>{v || <span className="add">+ Add food</span>}</b>
-                </button>
+                {isPast ? (
+                  <div className="slot-main past">
+                    <small>{sl}</small>
+                    <b>{v || '—'}</b>
+                  </div>
+                ) : (
+                  <button className="slot-main" onClick={() => onEditSlot(sl)}>
+                    <small>{sl}</small>
+                    <b>{v || <span className="add">+ Add food</span>}</b>
+                  </button>
+                )}
                 {isToday && v && (
                   <button className="slot-log" onClick={() => onLogSlot(sl)}>
                     Log
@@ -116,6 +125,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
             )
           })}
         </div>
+        {isPast && <div className="disclaim">This day has passed, so its meals can't be changed.</div>}
         {note?.why && <div className="menu-why">{note.why}</div>}
         {aiOn ? (
           <button className="btn2 menu-ai" onClick={makePlan} disabled={planning}>
@@ -134,7 +144,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, o
         {note && (
           <div className="disclaim">
             Planned {new Date(note.createdAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} from {kid.name}'s age and the last 14
-            days of meals. Tap a meal to change it.
+            days of meals. Tap a meal from today on to change it.
           </div>
         )}
         {baby && <div className="disclaim">Under 1 year, milk is still the main food. Solids are for practice and for iron.</div>}
