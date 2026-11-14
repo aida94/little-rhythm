@@ -135,6 +135,8 @@ export default function App() {
               const baby = kid.ageM < 12
               setSheet({ type: 'feed', method: baby ? 'Solids' : 'Meal', food: baby ? v : `${slot}: ${v}` })
             }}
+            onOpenSettings={() => setSheet({ type: 'settings' })}
+            onToast={(m) => flash(m)}
           />
         )}
         {tab === 'trends' && <TrendsView kid={kid} mine={mine} now={now} weekOff={weekOff} onWeek={setWeekOff} hidden={hidden} onToggle={(l: Layer) => setHidden((h) => ({ ...h, [l]: !h[l] }))} />}

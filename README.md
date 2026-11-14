@@ -39,6 +39,7 @@ The Insights tab can ask an AI for a weekly summary and answer questions about a
 - The settings are saved only in this browser (IndexedDB). They are not in the code and not in backups, so add them again on each device.
 - When you use AI, the app sends a summary of the last 14 days of that child's logs to the AI service: times, foods, amounts, notes, age in months and gender. **Names are removed** first and replaced with "the child" or "a sibling".
 - Nothing is sent until you tap **Create insights**, **Ask** or **Read with AI**.
+- **Food tab**: with AI connected, each food you log is checked once by the AI (food groups in servings and key nutrients; cached). "What ate this week" and "Food groups" use it, weighted by how much was eaten (all, most, half, a little, none); milk bottles count as dairy. **Plan the week with AI** makes a 7-day menu from the child's age and the last 14 days of meals (liked, refused, what is low). Only food names, amounts and age are sent. Without AI, a built-in food list is used.
 - **Food emoji**: food entries get emoji (🍝🥦) from a built-in word list straight away. With AI connected, the AI picks better ones after saving; only the food text is sent, and each answer is remembered so a food is asked once.
 - All AI calls are in `src/lib/ai.ts`. To move the key to a small server later, change that file.
 

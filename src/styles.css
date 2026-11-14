@@ -258,3 +258,17 @@ input[type=text],input[type=number],input[type=url],input[type=password]{height:
 /* Toast with an Undo button */
 .toast.with-undo{display:flex;align-items:center;gap:12px;padding-right:6px}
 .toast-undo{border:0;background:none;color:var(--brand-2);font-weight:700;font-size:13px;padding:4px 8px}
+
+/* Food tab: AI menu and what was eaten */
+.menu-ai{width:100%;margin-top:10px}
+.menu-connect{width:100%;margin-top:10px;border:1.5px dashed var(--line);background:none;border-radius:12px;padding:9px 10px;font-size:12.5px;color:var(--muted)}
+.menu-why{margin-top:10px;font-size:12.5px;line-height:1.4;background:var(--brand-2-soft);border-radius:12px;padding:8px 10px}
+.ate{display:grid;gap:8px;margin:6px 0 10px}
+.ate-day{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:start}
+.ate-day small{color:var(--muted);font-size:12px;font-weight:600;padding-top:3px}
+.ate-day>div{display:flex;flex-wrap:wrap;gap:4px}
+.ate-food{background:var(--surface-2);border-radius:99px;padding:3px 9px;font-size:12.5px}
+.ate-food em{font-style:normal;color:var(--muted)}
+.ate-food.refused{opacity:.6;text-decoration:line-through}
+.nut-sub{margin-top:4px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.ate-food>span[aria-hidden]{margin-right:3px}

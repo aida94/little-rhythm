@@ -1,4 +1,8 @@
-import { DAYS, GROUPS, NUTRIENTS, analyse, keyNutrients, slotsFor, weekFood, type GroupId } from '../lib/food'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useRef, useState } from 'react'
+import { AiError, getAiSettings } from '../lib/ai'
+import { DAYS, GROUPS, NUTRIENTS, keyNutrients, slotsFor, type GroupId } from '../lib/food'
+import { analyseFoodsAi, foodKey, getFactsCache, getMenuNote, localFacts, planMenu, saveAiMenu, weekIntake } from '../lib/foodAi'
 import { todayIdx } from '../lib/time'
 import type { Entry, KidInfo, Menu } from '../lib/types'
 
@@ -10,30 +14,81 @@ interface Props {
   onDay: (d: number) => void
   onEditSlot: (slot: string) => void
   onLogSlot: (slot: string) => void
+  onOpenSettings: () => void
+  onToast: (msg: string) => void
 }
 
-export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot }: Props) {
+const AMOUNT_SHORT: Record<string, string> = { None: 'none', 'A little': 'a little', Half: 'half', Most: 'most', All: 'all' }
+
+export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot, onOpenSettings, onToast }: Props) {
   const baby = kid.ageM < 12
   const plan = menu[kid.id]?.[day] ?? {}
   const isToday = day === todayIdx()
-  const days = weekFood(mine)
+  const aiOn = useLiveQuery(async () => !!(await getAiSettings())?.apiKey, []) ?? false
+  const cache = useLiveQuery(getFactsCache, [])
+  const note = useLiveQuery(() => getMenuNote(kid.id), [kid.id])
+
+  // Food facts: from the AI when it has seen the food, else from the built-in list.
+  const facts = (food: string) => cache?.[foodKey(food)] ?? localFacts(food)
+  const days = weekIntake(mine, facts)
+  const foods = days.flatMap((d) => d.foods)
+  const missing = [...new Set(foods.map((f) => foodKey(f.text)))].filter((k) => k && cache && !(k in cache))
+  const missingKey = missing.join('|')
+  const allByAi = foods.length > 0 && missing.length === 0 && !!cache
+
+  // Ask the AI about new foods once, in the background.
+  const [checking, setChecking] = useState(0)
+  const tried = useRef(new Set<string>())
+  useEffect(() => {
+    if (!aiOn || !missingKey) return
+    const todo = missingKey.split('|').filter((k) => !tried.current.has(k))
+    if (!todo.length) return
+    todo.forEach((k) => tried.current.add(k))
+    setChecking(todo.length)
+    analyseFoodsAi(todo)
+      .catch(() => {}) // the built-in list stays in use
+      .finally(() => setChecking(0))
+  }, [aiOn, missingKey])
+
   const keys = keyNutrients(kid)
   const rows = keys
     .map((n) => {
-      const hit = days.map((fs) => fs.some((f) => analyse(f).some(([, ns]) => ns.includes(n))))
+      const hit = days.map((d) => d.nutrients.has(n))
       return { n, hit, c: hit.filter(Boolean).length }
     })
     .sort((a, b) => a.c - b.c)
-  const logged = days.flat().length
-  const per = Object.fromEntries(GROUPS.map(([g]) => [g, 0])) as Record<GroupId, number>
-  days.flat().forEach((f) => analyse(f).forEach(([g]) => per[g]++))
+  const loggedDays = days.filter((d) => d.foods.length).length
+  const per = Object.fromEntries(GROUPS.map(([g]) => [g, days.reduce((s, d) => s + d.groups[g], 0) / Math.max(1, loggedDays)])) as Record<GroupId, number>
+
+  // Weekly menu by AI
+  const [planning, setPlanning] = useState(false)
+  const [planError, setPlanError] = useState('')
+  const makePlan = async () => {
+    if (!confirm(`Replace ${kid.name}'s weekly menu with a new one from the AI?`)) return
+    setPlanning(true)
+    setPlanError('')
+    try {
+      const lowNutrients = rows.filter((r) => r.c < 3).map((r) => NUTRIENTS[r.n].name)
+      const lowGroups = baby ? [] : GROUPS.filter(([g, , target]) => loggedDays && per[g] < target * 0.6).map(([, label]) => label)
+      const { days: week, why } = await planMenu(kid, mine, { lowNutrients, lowGroups })
+      await saveAiMenu(menu, kid.id, week, why)
+      onToast('New weekly menu ready')
+    } catch (e) {
+      setPlanError(e instanceof AiError ? e.message : 'Something went wrong. Try again.')
+    } finally {
+      setPlanning(false)
+    }
+  }
+
+  const source = !foods.length ? '' : checking ? `AI is checking ${checking} new ${checking === 1 ? 'food' : 'foods'}…` : allByAi ? 'Checked by AI' : 'Estimated from a built-in food list'
+  const dayName = (i: number) => (i === 6 ? 'Today' : i === 5 ? 'Yesterday' : new Date(days[i].date).toLocaleDateString(undefined, { weekday: 'short' }))
 
   return (
     <>
       <div className="card">
         <div className="chart-h">
           <h3>Weekly menu</h3>
-          <span className="tag">{baby ? 'Solids' : 'Food'}</span>
+          <span className="tag">{note ? 'By AI' : baby ? 'Solids' : 'Food'}</span>
         </div>
         <div className="days">
           {DAYS.map((d, i) => (
@@ -60,42 +115,93 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot }:
             )
           })}
         </div>
+        {note?.why && <div className="menu-why">{note.why}</div>}
+        {aiOn ? (
+          <button className="btn2 menu-ai" onClick={makePlan} disabled={planning}>
+            {planning ? 'The AI is planning the week…' : note ? 'Plan a new week with AI' : `Plan ${kid.name}'s week with AI`}
+          </button>
+        ) : (
+          <button className="menu-connect" onClick={onOpenSettings}>
+            Connect AI in Settings to plan the week from what {kid.name} eats
+          </button>
+        )}
+        {planError && (
+          <div className="hint" role="alert">
+            {planError}
+          </div>
+        )}
+        {note && (
+          <div className="disclaim">
+            Planned {new Date(note.createdAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} from {kid.name}'s age and the last 14
+            days of meals. Tap a meal to change it.
+          </div>
+        )}
         {baby && <div className="disclaim">Under 1 year, milk is still the main food. Solids are for practice and for iron.</div>}
       </div>
 
       <div className="card">
         <h3>What {kid.name} ate this week</h3>
-        <div className="sub">Key nutrients for {kid.age}, from the meals you logged in the last 7 days</div>
-        {logged ? (
-          rows.map((r) => {
-            const [cls, label] = r.c >= 5 ? ['good', 'Good'] : r.c >= 2 ? ['low', 'Low'] : ['miss', 'Missing']
-            return (
-              <div className="nut" key={r.n}>
-                <div className="nut-h">
-                  <b>{NUTRIENTS[r.n].name}</b>
-                  <span className={`pill ${cls}`}>{label}</span>
+        <div className="sub">
+          {foods.length ? `${foods.length} ${foods.length === 1 ? 'meal' : 'meals'} logged in the last 7 days` : 'From the meals you log'}
+          {source && ` · ${source}`}
+        </div>
+        {foods.length ? (
+          <>
+            <div className="ate">
+              {days
+                .map((d, i) => ({ d, i }))
+                .filter(({ d }) => d.foods.length)
+                .reverse()
+                .map(({ d, i }) => (
+                  <div className="ate-day" key={d.date}>
+                    <small>{dayName(i)}</small>
+                    <div>
+                      {d.foods.map((f, j) => (
+                        <span className={`ate-food${f.amount === 'None' ? ' refused' : ''}`} key={j}>
+                          {f.emoji && <span aria-hidden="true">{f.emoji} </span>}
+                          {f.text || f.when}
+                          {f.amount && <em> · {AMOUNT_SHORT[f.amount] ?? f.amount}</em>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <div className="sub nut-sub">Key nutrients for {kid.age}</div>
+            {rows.map((r) => {
+              const [cls, label] = r.c >= 5 ? ['good', 'Good'] : r.c >= 2 ? ['low', 'Low'] : ['miss', 'Missing']
+              return (
+                <div className="nut" key={r.n}>
+                  <div className="nut-h">
+                    <b>{NUTRIENTS[r.n].name}</b>
+                    <span className={`pill ${cls}`}>{label}</span>
+                  </div>
+                  <div className="dots" aria-label={`${r.c} of 7 days`}>
+                    {r.hit.map((x, i) => (
+                      <i key={i} className={x ? 'on' : ''} title={dayName(i)} />
+                    ))}
+                    <span>{r.c} of 7 days</span>
+                  </div>
+                  {r.c < 5 && <div className="try">Try: {NUTRIENTS[r.n].foods}</div>}
                 </div>
-                <div className="dots" aria-label={`${r.c} of 7 days`}>
-                  {r.hit.map((x, i) => (
-                    <i key={i} className={x ? 'on' : ''} title={DAYS[(todayIdx() + 1 + i) % 7]} />
-                  ))}
-                  <span>{r.c} of 7 days</span>
-                </div>
-                {r.c < 5 && <div className="try">Try: {NUTRIENTS[r.n].foods}</div>}
-              </div>
-            )
-          })
+              )
+            })}
+          </>
         ) : (
-          <div className="empty">Log a meal with what was eaten to see this.</div>
+          <div className="empty">Log what {kid.name} eats, with how much, to see this.</div>
         )}
       </div>
 
       {!baby ? (
         <div className="card">
           <h3>Food groups</h3>
-          <div className="sub">Servings a day on average, against a rough target for {kid.age}</div>
+          <div className="sub">
+            {loggedDays
+              ? `Servings a day, from what ${kid.name} actually ate (${loggedDays} ${loggedDays === 1 ? 'day' : 'days'} logged), against a rough target for ${kid.age}`
+              : `Servings a day against a rough target for ${kid.age}`}
+          </div>
           {GROUPS.map(([g, label, target]) => {
-            const v = per[g] / 7
+            const v = per[g]
             return (
               <div className="grp" key={g}>
                 <span>{label}</span>
@@ -109,6 +215,7 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot }:
               </div>
             )
           })}
+          {loggedDays > 0 && <div className="disclaim">Amounts count: "half" eaten is half a portion. Milk bottles count as dairy.</div>}
         </div>
       ) : (
         <div className="card">
@@ -117,11 +224,11 @@ export function FoodView({ kid, mine, menu, day, onDay, onEditSlot, onLogSlot }:
           <div className="stats">
             <div>
               <small>Different foods this week</small>
-              <b>{new Set(days.flat().map((f) => f.toLowerCase())).size}</b>
+              <b>{new Set(foods.map((f) => foodKey(f.text))).size}</b>
             </div>
             <div>
               <small>Food groups tried</small>
-              <b>{GROUPS.filter(([g]) => per[g]).length} of 5</b>
+              <b>{GROUPS.filter(([g]) => days.some((d) => d.groups[g] > 0)).length} of 5</b>
             </div>
           </div>
         </div>
