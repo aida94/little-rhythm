@@ -17,6 +17,15 @@ const svg = (children: ReactNode, extra?: SVGProps<SVGSVGElement>) => (
 
 const icons = {
   sleep: () => svg(<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />),
+  // Daytime sleep: a sun with a "z".
+  nap: () =>
+    svg(
+      <>
+        <circle cx="10" cy="15" r="4.5" />
+        <path d="M10 6.5v1M2.5 15h1M16.5 15h1M4.7 9.7l.8.8M15.3 9.7l-.8.8" />
+        <path d="M16 3h4.5l-4.5 4.5h4.5" strokeWidth="1.7" />
+      </>,
+    ),
   feed: () =>
     svg(
       <>

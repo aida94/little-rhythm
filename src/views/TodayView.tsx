@@ -143,7 +143,7 @@ export function EntryRow({
     <div className={`item${onOpen ? ' tap' : ''}${fresh ? ' fresh' : ''}`} {...open}>
       <time>{time}</time>
       <span className={`ic ${e.type}${emoji ? ' emoji' : ''}`} title={e.details?.emoji}>
-        {emoji || <Icon name={e.type} />}
+        {emoji || <Icon name={e.type === 'sleep' && e.details?.kind === 'Nap' ? 'nap' : e.type} />}
       </span>
       <div>
         <div className="what">{d.what}</div>
